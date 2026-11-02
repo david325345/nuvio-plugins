@@ -1,50 +1,53 @@
-# Nuvio pluginy pro Apple TV
+# Nuvio plugins for Apple TV
 
-Repozitář pluginů pro Nuvio (Apple TV, fork NuvioTVOS s podporou pluginů).
-Instalace: **Nastavení → Integrace → Plugins → Repository URL** a vložit
+Plugin repository for Nuvio on Apple TV (the NuvioTVOS fork with plugin support).
+Install it in **Settings → Integrations → Plugins → Repository URL**:
 
 ```
 https://raw.githubusercontent.com/david325345/nuvio-plugins/main/manifest.json
 ```
 
+The repository list syncs with your Nuvio account, so adding it on nuvio.tv works too.
+
 ## Usenet Direct
 
-Hledá filmy a seriály na Newznab indexerech podle IMDb ID a vrací streamy s
-`nzbUrl`, které přehraje **Nuvio Usenet** přímo z usenet serveru (servery se
-zadávají v Nastavení → Usenet). Všechno běží v Apple TV: klíče k indexerům
-neopustí zařízení, jdou jen na indexer.
+Searches Newznab indexers for movies and episodes by IMDb id and returns streams
+with `nzbUrl`, which **Nuvio Usenet** plays straight from your usenet server
+(servers are set in Settings → Usenet). Everything runs on the Apple TV: your
+indexer keys never leave it except to the indexer itself.
 
 | | |
 |---|---|
-| **Indexery** | NZBGeek, altHUB, Usenet-Crawler, DogNZB a jeden vlastní (název, adresa API, klíč). Hledá se na všech vyplněných najednou. |
-| **Filmy** | `t=movie&imdbid=…&cat=2000`, až 2 stránky po 100. |
-| **Seriály** | `imdbid`, když ho indexer u seriálů umí, jinak IMDb → TVmaze → `tvdbid`, záloha `tvmazeid`; nejvýš 2 dotazy na indexer. |
-| **Cache** | V `localStorage` pluginu na Apple TV: schopnosti indexeru (`t=caps`) den, TVmaze 90 dní, výsledky hledání hodinu (prázdné 15 min). Opakované otevření stejného filmu nebo dílu indexer nevolá. |
-| **Limity** | Když indexer ohlásí vyčerpaný denní limit, do půlnoci UTC se přeskakuje. |
-| **Filtr a řazení** | Bez hesla, jen požadovaný film/díl, max. rozlišení, velikost, CAM/TS; CZ/SK dabing a titulky nahoru, pak rozlišení, zdroj, velikost. |
-| **Nastavení** | Klíče, vlastní indexer, rozlišení, počet výsledků, max. velikosti, CZ/SK, CAM. Tlačítko **Verify** ověří klíče (`t=caps`). |
+| **Indexers** | NZBGeek, altHUB, Usenet-Crawler, DogNZB and one custom indexer (name, API URL, key). Every indexer with a key is searched at once. |
+| **Movies** | `t=movie&imdbid=…&cat=2000`, up to 2 pages of 100. |
+| **Series** | `imdbid` where the indexer supports it for TV, otherwise IMDb → TVmaze → `tvdbid`, then `tvmazeid`; at most 2 requests per indexer. |
+| **Cache** | In the plugin's `localStorage` on the Apple TV: indexer capabilities (`t=caps`) for a day, TVmaze for 90 days, search results for an hour (empty ones 15 min). Opening the same movie or episode again doesn't call the indexer. |
+| **Limits** | When an indexer reports its daily limit, it is skipped until midnight UTC. |
+| **Filtering and order** | No passworded releases, only the requested movie/episode, max resolution, size, CAM/TS; Czech/Slovak audio and subtitles first, then resolution, source and size. |
+| **Settings** | Keys, custom indexer, resolution, results per indexer, size limits, CZ/SK, CAM. **Verify** checks the keys (`t=caps`). |
 
-Plugin je jen pro Apple TV (`supportedPlatforms: ["tvos"]`) — Nuvio na Androidu
-ho nenabídne, protože neumí přehrát `nzbUrl`.
+The plugin runs on Apple TV only (`supportedPlatforms: ["tvos"]`); Nuvio on
+Android doesn't offer it because it can't play `nzbUrl` streams.
 
-## Rozšíření formátu Nuvio pluginů na Apple TV
+## The plugin format on Apple TV
 
-Pluginy jsou ve stejném formátu jako v Nuvio pro Android (`manifest.json` se
-seznamem `scrapers`, funkce `getStreams(tmdbId, mediaType, season, episode)`
-a `onSettings()`). Apple TV k tomu navíc umí:
+Plugins use the same format as Nuvio on Android (`manifest.json` with a
+`scrapers` list, `getStreams(tmdbId, mediaType, season, episode)` and
+`onSettings()`), and get the same environment: `fetch`, `cheerio`, `CryptoJS`,
+`require()` for both, `TMDB_API_KEY`, `SCRAPER_SETTINGS`. Apple TV adds:
 
-- pátý argument `getStreams`: `{ imdbId, tmdbId, videoId, type, season, episode, platform: "tvos" }`,
-- výsledek s `nzbUrl` (a `fileMustInclude`, `fileIdx`) místo `url` — přehraje Nuvio Usenet;
-  dál také Stremio pole `description` a `behaviorHints`,
-- `onVerify(settings)` → `{ ok, message }` pro tlačítko Verify v nastavení,
-- `localStorage` (na plugin a profil, max. 2 MB),
+- a fifth `getStreams` argument: `{ imdbId, tmdbId, videoId, type, season, episode, platform: "tvos" }`,
+- results with `nzbUrl` (and `fileMustInclude`, `fileIdx`) instead of `url`, played by Nuvio Usenet;
+  the Stremio fields `description` and `behaviorHints` are read too,
+- `onVerify(settings)` → `{ ok, message }` for the Verify button in the settings,
+- `localStorage` (per plugin and profile, up to 2 MB),
 - `NUVIO_PLATFORM === "tvos"`.
 
-## Testy
+## Tests
 
 ```
 node test/plugin.test.js
 ```
 
-Spustí plugin stejně jako Apple TV (prázdný JavaScript kontext s polyfilly
-z aplikace) proti lokálnímu falešnému indexeru a TVmaze.
+Runs the plugin the way Apple TV does (a bare JavaScript context with the
+app's polyfills) against a local fake indexer and TVmaze.

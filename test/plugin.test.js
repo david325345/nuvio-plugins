@@ -163,7 +163,7 @@ async function test(name, fn) {
     const rt = runtime({}, hooks);
     const ok = await rt.call(settings, 'onVerify', [settings]);
     assert.equal(ok.ok, true);
-    assert.match(ok.message, /NZBGeek ✓ \(seriály: tvdbid, tvmazeid\)/);
+    assert.match(ok.message, /NZBGeek ✓ \(series by tvdbid, tvmazeid\)/);
     const bad = await rt.call(settings, 'onVerify', [{ key_nzbgeek: 'GOODKEY', key_althub: 'WRONG' }]);
     assert.equal(bad.ok, false);
     assert.match(bad.message, /altHUB ✕ Incorrect user credentials \(100\)/);

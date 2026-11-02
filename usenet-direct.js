@@ -11,7 +11,7 @@
  * with { imdbId }, onVerify(settings), localStorage and `nzbUrl` results.
  */
 
-var VERSION = '1.0.0';
+var VERSION = '1.1.0';
 
 var TEST = (typeof globalThis.__usenetDirectTest === 'object' && globalThis.__usenetDirectTest) || {};
 
@@ -42,23 +42,23 @@ var FALLBACK_CAPS = { tvParams: ['q', 'tvdbid', 'season', 'ep'], movieParams: ['
 
 function onSettings() {
   return [
-    { type: 'info', label: 'Usenet Direct ' + VERSION, description: 'Vyplň klíč aspoň u jednoho indexeru. Hledá se na všech vyplněných najednou, přehrává Nuvio Usenet (servery v Nastavení → Usenet).' },
-    { type: 'text', key: 'key_nzbgeek', label: 'NZBGeek API klíč', isPassword: true, placeholder: 'nzbgeek.info → Profile' },
-    { type: 'text', key: 'key_althub', label: 'altHUB API klíč', isPassword: true, placeholder: 'althub.co.za → Profile' },
-    { type: 'text', key: 'key_usenetcrawler', label: 'Usenet-Crawler API klíč', isPassword: true, placeholder: 'usenet-crawler.com → Profile' },
-    { type: 'text', key: 'key_dognzb', label: 'DogNZB API klíč', isPassword: true, placeholder: 'dognzb.cr → Profile' },
-    { type: 'text', key: 'custom_name', label: 'Vlastní indexer — název', placeholder: 'nepovinné' },
-    { type: 'text', key: 'custom_url', label: 'Vlastní indexer — adresa API', placeholder: 'https://…/api' },
-    { type: 'text', key: 'custom_key', label: 'Vlastní indexer — API klíč', isPassword: true },
-    { type: 'select', key: 'max_res', label: 'Nejvyšší rozlišení', defaultValue: '2160p',
+    { type: 'info', label: 'Usenet Direct ' + VERSION, description: 'Enter the API key of at least one indexer. All indexers with a key are searched at once; streams play in Nuvio Usenet (servers in Settings → Usenet).' },
+    { type: 'text', key: 'key_nzbgeek', label: 'NZBGeek API key', isPassword: true, placeholder: 'nzbgeek.info → Profile' },
+    { type: 'text', key: 'key_althub', label: 'altHUB API key', isPassword: true, placeholder: 'althub.co.za → Profile' },
+    { type: 'text', key: 'key_usenetcrawler', label: 'Usenet-Crawler API key', isPassword: true, placeholder: 'usenet-crawler.com → Profile' },
+    { type: 'text', key: 'key_dognzb', label: 'DogNZB API key', isPassword: true, placeholder: 'dognzb.cr → Profile' },
+    { type: 'text', key: 'custom_name', label: 'Custom indexer — name', placeholder: 'optional' },
+    { type: 'text', key: 'custom_url', label: 'Custom indexer — API URL', placeholder: 'https://…/api' },
+    { type: 'text', key: 'custom_key', label: 'Custom indexer — API key', isPassword: true },
+    { type: 'select', key: 'max_res', label: 'Highest resolution', defaultValue: '2160p',
       options: [{ label: '2160p (4K)', value: '2160p' }, { label: '1080p', value: '1080p' }, { label: '720p', value: '720p' }] },
-    { type: 'toggle', key: 'include_sd', label: 'Zobrazit i SD', defaultValue: false },
-    { type: 'select', key: 'max_results', label: 'Výsledků z každého indexeru', defaultValue: '20',
+    { type: 'toggle', key: 'include_sd', label: 'Include SD', defaultValue: false },
+    { type: 'select', key: 'max_results', label: 'Results per indexer', defaultValue: '20',
       options: ['10', '20', '30', '50'] },
-    { type: 'text', key: 'max_movie_gb', label: 'Max. velikost filmu (GB)', placeholder: 'bez limitu' },
-    { type: 'text', key: 'max_episode_gb', label: 'Max. velikost dílu (GB)', placeholder: 'bez limitu' },
-    { type: 'toggle', key: 'prefer_cz', label: 'CZ/SK dabing a titulky nahoru', defaultValue: true },
-    { type: 'toggle', key: 'hide_cam', label: 'Skrýt CAM/TS', defaultValue: true }
+    { type: 'text', key: 'max_movie_gb', label: 'Max movie size (GB)', placeholder: 'no limit' },
+    { type: 'text', key: 'max_episode_gb', label: 'Max episode size (GB)', placeholder: 'no limit' },
+    { type: 'toggle', key: 'prefer_cz', label: 'Czech/Slovak audio and subtitles first', defaultValue: true },
+    { type: 'toggle', key: 'hide_cam', label: 'Hide CAM/TS', defaultValue: true }
   ];
 }
 
@@ -610,10 +610,10 @@ function formatSize(bytes) {
 function formatAge(ms, now) {
   if (!ms) return null;
   var days = Math.floor((now - ms) / 86400000);
-  if (days < 1) return 'dnes';
+  if (days < 1) return 'today';
   if (days < 60) return days + ' d';
-  if (days < 730) return Math.round(days / 30) + ' měs';
-  return Math.round(days / 365) + ' r';
+  if (days < 730) return Math.round(days / 30) + ' mo';
+  return Math.round(days / 365) + ' y';
 }
 
 var RES_LABEL = { '2160p': '2160p', '1080p': '1080p', '720p': '720p', sd: 'SD', unknown: '' };
@@ -678,7 +678,7 @@ function describe(e, now) {
   var sound = [rel.audio, e.audio.length ? flags(e.audio) : null, rel.multiAudio && e.audio.length < 2 ? 'MULTI' : null].filter(Boolean).join(' ');
   var langLine = [sound ? '🔊 ' + sound : null, e.subs.length ? '💬 ' + flags(e.subs) : null].filter(Boolean).join('   ');
   if (langLine) lines.push(langLine);
-  if (e.czAudio || e.czSubs) lines.push(e.czAudio ? '🇨🇿 CZ/SK dabing' : '🇨🇿 CZ/SK titulky');
+  if (e.czAudio || e.czSubs) lines.push(e.czAudio ? '🇨🇿 CZ/SK audio' : '🇨🇿 CZ/SK subtitles');
   var age = formatAge(item.pubDate, now);
   lines.push(['💾 ' + formatSize(item.size), age ? '📅 ' + age : null, item.grabs ? '⬇ ' + item.grabs : null].filter(Boolean).join('   '));
   return lines.join('\n');
@@ -704,7 +704,6 @@ function toStream(e, now) {
   var name = ['UD · ' + e.indexer.name, [res, e.czAudio ? '🇨🇿' : null].filter(Boolean).join(' ')].filter(Boolean).join('\n');
   return {
     name: name,
-    title: e.item.title,
     description: '🔎 ' + e.indexer.name + '\n' + describe(e, now),
     quality: res || undefined,
     size: formatSize(e.item.size),
@@ -781,13 +780,13 @@ async function getStreams(tmdbId, mediaType, season, episode, context) {
 // Apple TV extension: Settings → provider → Verify.
 async function onVerify(rawSettings) {
   var settings = readSettings(rawSettings || (typeof SCRAPER_SETTINGS === 'object' ? SCRAPER_SETTINGS : {}));
-  if (!settings.indexers.length) return { ok: false, message: 'Vyplň klíč aspoň u jednoho indexeru.' };
+  if (!settings.indexers.length) return { ok: false, message: 'Enter the API key of at least one indexer.' };
   var results = await Promise.all(settings.indexers.map(async function (indexer) {
     try {
       var caps = parseCaps(await request(indexer, { t: 'caps', apikey: indexer.key }, 10000));
       cacheSet('caps:' + indexer.url, caps, CAPS_TTL);
       var ids = caps.tvParams.filter(function (p) { return /imdbid|tvdbid|tvmazeid/.test(p); });
-      return { ok: true, text: indexer.name + ' ✓' + (ids.length ? ' (seriály: ' + ids.join(', ') + ')' : '') };
+      return { ok: true, text: indexer.name + ' ✓' + (ids.length ? ' (series by ' + ids.join(', ') + ')' : '') };
     } catch (e) {
       var message = e instanceof NewznabError ? e.description + ' (' + e.code + ')' : String((e && e.message) || e);
       return { ok: false, text: indexer.name + ' ✕ ' + message };
