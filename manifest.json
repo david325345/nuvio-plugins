@@ -1,0 +1,21 @@
+{
+  "name": "Usenet Direct",
+  "version": "1.0.0",
+  "description": "Filmy a seriály z Newznab indexerů (NZBGeek, altHUB, Usenet-Crawler, DogNZB) pro přehrávání přímo z usenetu v Nuvio Usenet na Apple TV.",
+  "author": "david325345",
+  "scrapers": [
+    {
+      "id": "usenet-direct",
+      "name": "Usenet Direct",
+      "description": "Newznab indexery podle IMDb → Nuvio Usenet",
+      "version": "1.0.0",
+      "filename": "usenet-direct.js",
+      "supportedTypes": ["movie", "tv"],
+      "enabled": true,
+      "hasSettings": true,
+      "supportedPlatforms": ["tvos"],
+      "formats": ["usenet"],
+      "contentLanguage": ["cs", "en"]
+    }
+  ]
+}

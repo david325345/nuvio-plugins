@@ -1,0 +1,15 @@
+<caps>
+<server appversion="1.0.0" version="0.1" title="NZBgeek" strapline="" email="info@nzbgeek.info" url="https://api.nzbgeek.info/" image="https://cdn.nzbgeek.info/covers/nzbgeek.png"/>
+<limits max="100" default="100"/>
+<registration available="no" open="no"/>
+<searching>
+<search available="yes" supportedParams="q,group"/>
+<tv-search available="yes" supportedParams="q,rid,tvdbid,tvmazeid,season,ep"/>
+<movie-search available="yes" supportedParams="q,imdbid,genre"/>
+<audio-search available="yes" supportedParams="q"/>
+</searching>
+<categories>
+<category id="2000" name="Movies"><subcat id="2040" name="HD" description="Movies"/></category>
+<category id="5000" name="TV"><subcat id="5070" name="Anime" description="TV"/></category>
+</categories>
+</caps>

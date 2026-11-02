@@ -1,0 +1,144 @@
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/" version="2.0">
+<channel>
+<atom:link href="https://api.nzbgeek.info/api?t=movie&amp;imdbid=0816692&amp;extended=1&amp;limit=3&amp;apikey=APIKEY" rel="self" type="application/rss+xml"/>
+<title>api.nzbgeek.info</title>
+<description>NZBgeek API</description>
+<link>http://api.nzbgeek.info/</link>
+<language>en-gb</language>
+<webMaster>info@nzbgeek.info (NZBgeek)</webMaster>
+<category/>
+<image>
+<url>https://api.nzbgeek.info/covers/nzbgeek.png</url>
+<title>api.nzbgeek.info</title>
+<link>http://api.nzbgeek.info/</link>
+<description>NZBgeek</description>
+</image>
+<newznab:response offset="0" total="218"/>
+<item>
+<title>Interstellar [2014]</title>
+<guid isPermaLink="true">https://nzbgeek.info/geekseek.php?guid=ad6e976ae7fca8c59c1bd3b9c651e3b8</guid>
+<link>https://api.nzbgeek.info/api?t=get&amp;id=ad6e976ae7fca8c59c1bd3b9c651e3b8&amp;apikey=APIKEY</link>
+<comments>https://nzbgeek.info/geekseek.php?guid=ad6e976ae7fca8c59c1bd3b9c651e3b8</comments>
+<pubDate>Thu, 15 Oct 2026 16:31:26 +0000</pubDate>
+<category>Movies &gt; HD</category>
+<description>Interstellar [2014]</description>
+<enclosure url="https://api.nzbgeek.info/api?t=get&amp;id=ad6e976ae7fca8c59c1bd3b9c651e3b8&amp;apikey=APIKEY" length="16562238000" type="application/x-nzb"/>
+<newznab:attr name="category" value="2000"/>
+<newznab:attr name="category" value="2040"/>
+<newznab:attr name="size" value="16562238000"/>
+<newznab:attr name="guid" value="ad6e976ae7fca8c59c1bd3b9c651e3b8"/>
+<newznab:attr name="imdbtitle" value="Interstellar"/>
+<newznab:attr name="imdb" value="00816692"/>
+<newznab:attr name="imdbtagline" value="Mankind was born on Earth It was never meant to die here"/>
+<newznab:attr name="imdbscore" value="8.6"/>
+<newznab:attr name="genre" value="Adventure, Drama, Sci-Fi"/>
+<newznab:attr name="imdbyear" value="2014"/>
+<newznab:attr name="imdbdirector" value="Christopher Nolan"/>
+<newznab:attr name="coverurl" value="https://api.nzbgeek.info/covers/movies/00816692-cover.jpg"/>
+<newznab:attr name="runtime" value="169 min"/>
+<newznab:attr name="grabs" value="16"/>
+<newznab:attr name="comments" value="0"/>
+<newznab:attr name="password" value="2"/>
+<newznab:attr name="usenetdate" value="Thu, 15 Oct 2026 16:31:26 +0000"/>
+<newznab:attr name="thumbsup" value="0"/>
+<newznab:attr name="thumbsdown" value="0"/>
+</item>
+<item>
+<title>Interstellar.2014.BluRay.1080p.x265.10bit.2Audio.MNHD-FRDS</title>
+<guid isPermaLink="true">https://nzbgeek.info/geekseek.php?guid=4b732dc5bb69fb942a484fb0ef3c8344</guid>
+<link>https://api.nzbgeek.info/api?t=get&amp;id=4b732dc5bb69fb942a484fb0ef3c8344&amp;apikey=APIKEY</link>
+<comments>https://nzbgeek.info/geekseek.php?guid=4b732dc5bb69fb942a484fb0ef3c8344</comments>
+<pubDate>Sat, 26 Sep 2026 15:46:19 +0000</pubDate>
+<category>Movies &gt; BluRay</category>
+<description>Interstellar.2014.BluRay.1080p.x265.10bit.2Audio.MNHD-FRDS</description>
+<enclosure url="https://api.nzbgeek.info/api?t=get&amp;id=4b732dc5bb69fb942a484fb0ef3c8344&amp;apikey=APIKEY" length="11257829000" type="application/x-nzb"/>
+<newznab:attr name="category" value="2000"/>
+<newznab:attr name="category" value="2050"/>
+<newznab:attr name="size" value="11257829000"/>
+<newznab:attr name="guid" value="4b732dc5bb69fb942a484fb0ef3c8344"/>
+<newznab:attr name="imdbtitle" value="Interstellar"/>
+<newznab:attr name="imdb" value="00816692"/>
+<newznab:attr name="imdbscore" value="8.6"/>
+<newznab:attr name="genre" value="Adventure, Drama, Sci-Fi"/>
+<newznab:attr name="imdbyear" value="2014"/>
+<newznab:attr name="runtime" value="169 min"/>
+<newznab:attr name="language" value="English"/>
+<newznab:attr name="language" value="Chinese"/>
+<newznab:attr name="subs" value="English"/>
+<newznab:attr name="subs" value="Chinese"/>
+<newznab:attr name="grabs" value="290"/>
+<newznab:attr name="comments" value="0"/>
+<newznab:attr name="password" value="0"/>
+<newznab:attr name="usenetdate" value="Sat, 26 Sep 2026 15:46:19 +0000"/>
+<newznab:attr name="thumbsup" value="0"/>
+<newznab:attr name="thumbsdown" value="0"/>
+</item>
+<item>
+<title>Interstellar.2014.UHD.BluRay.1080p.DDP.5.1.DoVi.HDR10+.x265-SM737</title>
+<guid isPermaLink="true">https://nzbgeek.info/geekseek.php?guid=dd79a1a4d763f370a20b68b7a855351d</guid>
+<link>https://api.nzbgeek.info/api?t=get&amp;id=dd79a1a4d763f370a20b68b7a855351d&amp;apikey=APIKEY</link>
+<comments>https://nzbgeek.info/geekseek.php?guid=dd79a1a4d763f370a20b68b7a855351d</comments>
+<pubDate>Sat, 05 Sep 2026 18:37:04 +0000</pubDate>
+<category>Movies &gt; HD</category>
+<description>Interstellar.2014.UHD.BluRay.1080p.DDP.5.1.DoVi.HDR10+.x265-SM737</description>
+<enclosure url="https://api.nzbgeek.info/api?t=get&amp;id=dd79a1a4d763f370a20b68b7a855351d&amp;apikey=APIKEY" length="10385784000" type="application/x-nzb"/>
+<newznab:attr name="category" value="2000"/>
+<newznab:attr name="category" value="2040"/>
+<newznab:attr name="size" value="10385784000"/>
+<newznab:attr name="guid" value="dd79a1a4d763f370a20b68b7a855351d"/>
+<newznab:attr name="imdbtitle" value="Interstellar"/>
+<newznab:attr name="imdb" value="00816692"/>
+<newznab:attr name="imdbyear" value="2014"/>
+<newznab:attr name="runtime" value="169 min"/>
+<newznab:attr name="language" value="English"/>
+<newznab:attr name="subs" value="English"/>
+<newznab:attr name="subs" value="English (US)"/>
+<newznab:attr name="subs" value="Arabic"/>
+<newznab:attr name="subs" value="Bulgarian"/>
+<newznab:attr name="subs" value="Catalan"/>
+<newznab:attr name="subs" value="Czech"/>
+<newznab:attr name="subs" value="Danish"/>
+<newznab:attr name="subs" value="German"/>
+<newznab:attr name="subs" value="Greek"/>
+<newznab:attr name="subs" value="Spanish (Latin America)"/>
+<newznab:attr name="subs" value="Spanish (ES)"/>
+<newznab:attr name="subs" value="Estonian"/>
+<newznab:attr name="subs" value="Finnish"/>
+<newznab:attr name="subs" value="French (FR)"/>
+<newznab:attr name="subs" value="Hebrew"/>
+<newznab:attr name="subs" value="Croatian"/>
+<newznab:attr name="subs" value="Hungarian"/>
+<newznab:attr name="subs" value="Indonesian"/>
+<newznab:attr name="subs" value="Italian"/>
+<newznab:attr name="subs" value="Japanese"/>
+<newznab:attr name="subs" value="Korean"/>
+<newznab:attr name="subs" value="Lithuanian"/>
+<newznab:attr name="subs" value="Latvian"/>
+<newznab:attr name="subs" value="Macedonian"/>
+<newznab:attr name="subs" value="Malay"/>
+<newznab:attr name="subs" value="Dutch"/>
+<newznab:attr name="subs" value="Norwegian"/>
+<newznab:attr name="subs" value="Polish"/>
+<newznab:attr name="subs" value="Portuguese (BR)"/>
+<newznab:attr name="subs" value="Portuguese (PT)"/>
+<newznab:attr name="subs" value="Romanian"/>
+<newznab:attr name="subs" value="Russian"/>
+<newznab:attr name="subs" value="Slovenian"/>
+<newznab:attr name="subs" value="Swedish"/>
+<newznab:attr name="subs" value="Thai"/>
+<newznab:attr name="subs" value="Turkish"/>
+<newznab:attr name="subs" value="Cantonese (Hant)"/>
+<newznab:attr name="subs" value="Chinese (Simplified)"/>
+<newznab:attr name="subs" value="Chinese"/>
+<newznab:attr name="subs" value="Hant"/>
+<newznab:attr name="subs" value="HK"/>
+<newznab:attr name="subs" value="Chinese (Traditional)"/>
+<newznab:attr name="grabs" value="749"/>
+<newznab:attr name="comments" value="1"/>
+<newznab:attr name="password" value="0"/>
+<newznab:attr name="usenetdate" value="Sat, 05 Sep 2026 18:37:04 +0000"/>
+<newznab:attr name="thumbsup" value="0"/>
+<newznab:attr name="thumbsdown" value="0"/>
+</item>
+</channel>
+</rss>
