@@ -1,6 +1,6 @@
 {
   "name": "Nuvio Plugin Examples",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Small plugins that show the Apple TV extensions of the Nuvio plugin format.",
   "author": "david325345",
   "scrapers": [
@@ -30,6 +30,75 @@
       ],
       "enabled": true,
       "hasSettings": true
+    },
+    {
+      "id": "tvmaze-example",
+      "name": "Example: TVmaze",
+      "description": "Catalogs, search, metadata and ratings from TVmaze (series)",
+      "version": "1.0.0",
+      "filename": "tvmaze-example.js",
+      "supportedTypes": [
+        "series"
+      ],
+      "resources": [
+        "catalog",
+        "meta",
+        "ratings"
+      ],
+      "idPrefixes": [
+        "tvmaze:",
+        "tt"
+      ],
+      "catalogs": [
+        {
+          "type": "series",
+          "id": "today",
+          "name": "Streaming Today (TVmaze)",
+          "extra": [
+            {
+              "name": "skip"
+            },
+            {
+              "name": "genre",
+              "options": [
+                "Drama",
+                "Comedy",
+                "Crime",
+                "Documentary",
+                "Reality",
+                "Anime"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "series",
+          "id": "search",
+          "name": "TVmaze",
+          "extra": [
+            {
+              "name": "search",
+              "isRequired": true
+            }
+          ]
+        }
+      ],
+      "ratingSources": [
+        {
+          "source": "tvmaze",
+          "name": "TVmaze",
+          "max": 10,
+          "episodes": true
+        }
+      ],
+      "supportedPlatforms": [
+        "tvos"
+      ],
+      "contentLanguage": [
+        "en"
+      ],
+      "enabled": true,
+      "hasSettings": false
     }
   ]
 }

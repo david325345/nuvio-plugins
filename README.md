@@ -55,7 +55,7 @@ Plugins use the same format as Nuvio on Android (`manifest.json` with a
 - `onVerify(settings)` → `{ ok, message }` for the Verify button in the settings,
 - `localStorage` (per plugin and profile, up to 2 MB),
 - `NUVIO_PLATFORM === "tvos"`,
-- subtitles from plugins (below).
+- subtitles, catalogs, metadata, search and ratings from plugins (below).
 
 ### Subtitles
 
@@ -97,18 +97,77 @@ subtitle add-ons, with a 20-second limit; answers are kept for 10 minutes
 (saving a provider's settings clears them).
 
 The [examples](examples) repository has a working one —
-`Example: OpenSubtitles`, which filters the OpenSubtitles v3 add-on by language:
+`Example: OpenSubtitles`, which filters the OpenSubtitles v3 add-on by language
+(the same repository has `Example: TVmaze`, below):
 
 ```
 https://raw.githubusercontent.com/david325345/nuvio-plugins/main/examples/manifest.json
 ```
 
+### Catalogs, metadata, search and ratings
+
+A provider can also fill Home and Discover rows, Details and the ratings. The
+app treats it as a Stremio add-on that exists only on the Apple TV, so the
+answers use the Stremio / Nuvio add-on formats, and the rows can be ordered and
+hidden in Settings like any add-on's. Nothing is added to the add-on list that
+syncs with the account.
+
+```json
+{
+  "id": "my-catalogs",
+  "name": "My Catalogs",
+  "filename": "my-catalogs.js",
+  "supportedTypes": ["series"],
+  "resources": ["catalog", "meta", "ratings"],
+  "idPrefixes": ["mysite:", "tt"],
+  "catalogs": [
+    { "type": "series", "id": "new", "name": "New", "extra": [{ "name": "skip" }, { "name": "genre", "options": ["Drama"] }] },
+    { "type": "series", "id": "search", "name": "My Site", "extra": [{ "name": "search", "isRequired": true }] }
+  ],
+  "ratingSources": [{ "source": "mysite", "name": "My Site", "max": 10, "episodes": true }],
+  "supportedPlatforms": ["tvos"]
+}
+```
+
+```js
+// catalogs (Home, Discover; a catalog with a "search" extra is used for search)
+async function getCatalog(type, id, extra) {   // extra: { skip, genre, search } as strings
+  return { metas: [{ id: 'tt0903747', type: 'series', name: 'Breaking Bad', poster: 'https://…' }] };
+}
+// metadata — only for the provider's own prefixes (here "mysite:"); tt/tmdb ids keep Cinemeta/TMDB
+async function getMeta(type, id) {
+  return { meta: { id, type, name: '…', poster: '…', description: '…',
+    videos: [{ id: id + ':1:1', title: 'Pilot', season: 1, episode: 1, released: '2024-01-01' }] } };
+}
+// ratings — for the provider's idPrefixes (all ids without them); episodes come as "tt…:1:2"
+async function getRatings(type, id, context) {
+  return [{ source: 'mysite', value: 8.4, url: 'https://…' }];
+}
+module.exports = { getCatalog, getMeta, getRatings };
+```
+
+- `metas` and `meta` follow the Stremio add-on format (`id`, `type`, `name`,
+  `poster`, `background`, `description`, `releaseInfo`, `genres`, `videos`…).
+  List IMDb ids (`tt…`) where you have them: Details, streams from other
+  add-ons and plugins, and ratings then work for those items as usual.
+- `ratingSources` is Nuvio's add-on format (`source`, `name`, `icon`, `max`,
+  `episodes`); the sources show up in the rating settings. The built-in
+  sources (IMDb, TMDB, Rotten Tomatoes…) can't be replaced.
+- Every call must answer within **8 seconds** (the app's add-on time limit).
+  Answers are kept for a while (catalogs 10 minutes, searches 2, metadata and
+  ratings an hour); keep slow lookups in `localStorage` yourself.
+
+`Example: TVmaze` in the [examples](examples) repository does all four
+(catalog, search, metadata for shows without an IMDb id, show and episode
+ratings) with the free TVmaze API.
+
 ### Writing and testing a plugin
 
 - **Test** (next to each provider on the TV and on the setup page) runs one
   search for The Matrix or Breaking Bad S1E1 (or any IMDb id on the page) and
-  shows the streams and/or subtitles, the time it took and everything the
-  plugin logged.
+  shows what the provider offers — streams, subtitles, the first catalog, a
+  search, metadata of a catalog item with its own id, ratings — with the time
+  it took and everything the plugin logged.
 - **Developer mode** (per repository) downloads the plugin code again before
   every search, so you can edit and retry without bumping versions. GitHub's
   raw files are cached for up to 5 minutes; for instant changes serve the
@@ -122,6 +181,7 @@ https://raw.githubusercontent.com/david325345/nuvio-plugins/main/examples/manife
 ```
 node test/plugin.test.js
 node test/example-subtitles.test.js
+node test/example-tvmaze.test.js
 ```
 
 Runs the plugins the way Apple TV does (a bare JavaScript context with the
