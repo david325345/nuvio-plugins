@@ -1,0 +1,35 @@
+{
+  "name": "Nuvio Plugin Examples",
+  "version": "1.0.0",
+  "description": "Small plugins that show the Apple TV extensions of the Nuvio plugin format.",
+  "author": "david325345",
+  "scrapers": [
+    {
+      "id": "opensubtitles-example",
+      "name": "Example: OpenSubtitles",
+      "description": "Subtitles from the OpenSubtitles v3 add-on, only in the languages you pick",
+      "version": "1.0.0",
+      "filename": "opensubtitles-example.js",
+      "supportedTypes": [
+        "movie",
+        "series"
+      ],
+      "resources": [
+        "subtitles"
+      ],
+      "idPrefixes": [
+        "tt"
+      ],
+      "supportedPlatforms": [
+        "tvos"
+      ],
+      "contentLanguage": [
+        "cs",
+        "sk",
+        "en"
+      ],
+      "enabled": true,
+      "hasSettings": true
+    }
+  ]
+}

@@ -2,65 +2,17 @@
 // context with the app's polyfills (fetch, URL, timers, localStorage…), against
 // a local fake Newznab indexer and TVmaze. Usage: node test/plugin.test.js
 'use strict';
-const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const { createRuntime } = require('./harness');
 
-const polyfills = fs.readFileSync(path.join(__dirname, 'nuvio-tvos-polyfills.js'), 'utf8');
 const plugin = fs.readFileSync(path.join(__dirname, '..', 'usenet-direct.js'), 'utf8');
 const fixture = (name) => fs.readFileSync(path.join(__dirname, 'fixtures', name), 'utf8');
 
 function runtime(storage, testHooks) {
-  const done = [];
-  const logs = [];
-  const timers = new Map();
-  const controllers = new Map();
-  const ctx = vm.createContext({});
-  ctx.__nuvioNative = {
-    log: (level, msg) => logs.push(`${level}: ${msg}`),
-    setTimer: (id, ms) => timers.set(id, setTimeout(() => { timers.delete(id); ctx.__nuvioTimerFired(id); }, ms)),
-    clearTimer: (id) => { clearTimeout(timers.get(id)); timers.delete(id); },
-    fetch: (id, url, json) => {
-      const opts = JSON.parse(json);
-      const controller = new AbortController();
-      controllers.set(id, controller);
-      fetch(url, { method: opts.method, headers: opts.headers, body: opts.body, signal: controller.signal })
-        .then(async (res) => {
-          const headers = {};
-          res.headers.forEach((v, k) => { headers[k] = v; });
-          ctx.__nuvioFetchDone(id, JSON.stringify({ status: res.status, statusText: res.statusText, headers, url: res.url, text: await res.text() }));
-        })
-        .catch((e) => ctx.__nuvioFetchDone(id, JSON.stringify({ error: String(e.message || e) })));
-    },
-    abortFetch: (id) => controllers.get(id)?.abort(),
-    digest: (alg, b64) => crypto.createHash(alg.replace('-', '').toLowerCase()).update(Buffer.from(b64, 'base64')).digest('base64'),
-    hmac: (alg, k, b64) => crypto.createHmac(alg.replace('-', '').toLowerCase(), Buffer.from(k, 'base64')).update(Buffer.from(b64, 'base64')).digest('base64'),
-    randomBytes: (n) => crypto.randomBytes(n).toString('base64'),
-    storageGet: (k) => (Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : null),
-    storageSet: (k, v) => { storage[k] = v; return true; },
-    storageRemove: (k) => { delete storage[k]; },
-    storageClear: () => { for (const k of Object.keys(storage)) delete storage[k]; },
-    storageKeys: () => Object.keys(storage).sort(),
-    done: (json, error) => done.push({ json, error }),
-  };
-  vm.runInContext(polyfills, ctx);
-  ctx.__usenetDirectTest = testHooks;
-  return {
-    logs,
-    async call(settings, name, args) {
-      vm.runInContext(`globalThis.SCRAPER_ID = 'usenet-direct'; globalThis.SCRAPER_SETTINGS = ${JSON.stringify(settings)};`, ctx);
-      vm.runInContext(`var module = { exports: {} }; var exports = module.exports; (function() {\n${plugin}\n})();`, ctx);
-      const before = done.length;
-      vm.runInContext(`__nuvioInvoke(${JSON.stringify(name)}, ${JSON.stringify(args)})`, ctx);
-      while (done.length === before) await new Promise((r) => setTimeout(r, 5));
-      const result = done[before];
-      if (result.error) throw new Error(result.error);
-      return JSON.parse(result.json);
-    },
-  };
+  return createRuntime({ code: plugin, scraperId: 'usenet-direct', storage, globals: { __usenetDirectTest: testHooks } });
 }
 
 const results = [];
