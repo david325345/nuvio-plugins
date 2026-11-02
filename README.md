@@ -9,6 +9,15 @@ https://raw.githubusercontent.com/david325345/nuvio-plugins/main/manifest.json
 
 The repository list syncs with your Nuvio account, so adding it on nuvio.tv works too.
 
+### Set up from a computer
+
+Typing API keys with the Siri Remote is slow. In **Settings → Integrations →
+Plugins → Set Up from a Computer** the Apple TV shows an address and a QR code;
+open it in a browser on a computer or phone on the same network to add
+repositories, enter provider settings, run a test search and read the logs.
+The page works only while that screen is open on the TV (and stops after 15
+minutes without use), and saved keys are never shown in full.
+
 ## Usenet Direct
 
 Searches Newznab indexers for movies and episodes by IMDb id and returns streams
@@ -42,6 +51,19 @@ Plugins use the same format as Nuvio on Android (`manifest.json` with a
 - `onVerify(settings)` → `{ ok, message }` for the Verify button in the settings,
 - `localStorage` (per plugin and profile, up to 2 MB),
 - `NUVIO_PLATFORM === "tvos"`.
+
+### Writing and testing a plugin
+
+- **Test** (next to each provider on the TV and on the setup page) runs one
+  search for The Matrix or Breaking Bad S1E1 (or any IMDb id on the page) and
+  shows the streams, the time it took and everything the plugin logged.
+- **Developer mode** (per repository) downloads the plugin code again before
+  every search, so you can edit and retry without bumping versions. GitHub's
+  raw files are cached for up to 5 minutes; for instant changes serve the
+  folder from your computer (`npx http-server -p 8080`) and add
+  `http://<computer-ip>:8080/manifest.json`.
+- **Logs** show the latest `console.log` / `warn` / `error` lines per provider;
+  the setup page refreshes them live.
 
 ## Tests
 
