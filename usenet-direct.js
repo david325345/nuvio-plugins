@@ -11,7 +11,7 @@
  * with { imdbId }, onVerify(settings), localStorage and `nzbUrl` results.
  */
 
-var VERSION = '1.1.0';
+var VERSION = '1.2.0';
 
 var TEST = (typeof globalThis.__usenetDirectTest === 'object' && globalThis.__usenetDirectTest) || {};
 
@@ -747,11 +747,22 @@ async function getStreams(tmdbId, mediaType, season, episode, context) {
     return showPromise;
   };
 
+  // Apple TV: show each indexer's results as soon as it answers; the sorted
+  // list returned at the end replaces them.
+  var emit = context && typeof context.emit === 'function' ? context.emit : null;
+
   var groups = await Promise.all(settings.indexers.map(async function (indexer) {
     try {
       var r = req.type === 'movie'
         ? await searchMovie(indexer, imdb)
         : await searchEpisode(indexer, imdb, req.season, req.episode, getShow);
+      if (emit && settings.indexers.length > 1) {
+        var found = selectEntries(r.items, req, settings);
+        if (found.length) {
+          var at = Date.now();
+          emit(found.map(function (e) { e.indexer = indexer; return toStream(e, at); }));
+        }
+      }
       return { indexer: indexer, items: r.items, via: r.via };
     } catch (e) {
       var message = e instanceof NewznabError ? e.description + ' (' + e.code + ')' : String((e && e.message) || e);

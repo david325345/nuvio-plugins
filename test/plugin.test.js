@@ -96,6 +96,21 @@ async function test(name, fn) {
     assert.ok(streams.every((s) => /S04E02/i.test(s.behaviorHints.filename)), streams.map((s) => s.behaviorHints.filename).join('\n'));
   });
 
+  await test('Apple TV: each indexer\'s streams are emitted before the sorted list', async () => {
+    const rt = createRuntime({ code: plugin, scraperId: 'usenet-direct', storage: {}, keepAlive: true, globals: { __usenetDirectTest: hooks } });
+    const both = { key_nzbgeek: 'GOODKEY', key_althub: 'GOODKEY' };
+    const seen = [];
+    const streams = await rt.call(both, 'getStreams', ['157336', 'movie', null, null, { imdbId: 'tt0816692' }],
+      { emitIndex: 4, onEmit: (list) => seen.push(list) });
+    assert.equal(seen.length, 2, 'one list per indexer');
+    assert.deepEqual(seen.map((list) => list[0].name.split('\n')[0]).sort(), ['UD · NZBGeek', 'UD · altHUB']);
+    assert.equal(streams.length, seen[0].length + seen[1].length);
+    // Without emit (Android, or one indexer) the plugin just returns.
+    const single = await rt.call(settings, 'getStreams', ['157336', 'movie', null, null, { imdbId: 'tt0816692' }], { emitIndex: 4 });
+    assert.equal(single.length, 2);
+    assert.equal(rt.emitted.length, 0);
+  });
+
   await test('IMDb id falls back to the first argument; no id means no search', async () => {
     const rt = runtime({}, hooks);
     const streams = await rt.call(settings, 'getStreams', ['tt0816692', 'movie', null, null]);

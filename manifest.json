@@ -1,6 +1,6 @@
 {
   "name": "Usenet Direct",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Movies and series from Newznab indexers (NZBGeek, altHUB, Usenet-Crawler, DogNZB) for direct usenet playback in Nuvio Usenet on Apple TV.",
   "author": "david325345",
   "scrapers": [
@@ -8,7 +8,7 @@
       "id": "usenet-direct",
       "name": "Usenet Direct",
       "description": "Newznab indexers by IMDb id → Nuvio Usenet",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "filename": "usenet-direct.js",
       "supportedTypes": [
         "movie",

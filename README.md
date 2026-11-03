@@ -35,6 +35,7 @@ indexer keys never leave it except to the indexer itself.
 | **Movies** | `t=movie&imdbid=…&cat=2000`, up to 2 pages of 100. |
 | **Series** | `imdbid` where the indexer supports it for TV, otherwise IMDb → TVmaze → `tvdbid`, then `tvmazeid`; at most 2 requests per indexer. |
 | **Cache** | In the plugin's `localStorage` on the Apple TV: indexer capabilities (`t=caps`) for a day, TVmaze for 90 days, search results for an hour (empty ones 15 min). Opening the same movie or episode again doesn't call the indexer. |
+| **Results as they come** | With more than one indexer, each indexer's streams show as soon as it answers; the sorted list replaces them when all are done. |
 | **Limits** | When an indexer reports its daily limit, it is skipped until midnight UTC. |
 | **Filtering and order** | No passworded releases, only the requested movie/episode, max resolution, size, CAM/TS; Czech/Slovak audio and subtitles first, then resolution, source and size. |
 | **Settings** | Keys, custom indexer, resolution, results per indexer, size limits, CZ/SK, CAM. **Verify** checks the keys (`t=caps`). |
@@ -53,9 +54,11 @@ Plugins use the same format as Nuvio on Android (`manifest.json` with a
 - results with `nzbUrl` (and `fileMustInclude`, `fileIdx`) instead of `url`, played by Nuvio Usenet;
   the Stremio fields `description` and `behaviorHints` are read too,
 - `onVerify(settings)` → `{ ok, message }` for the Verify button in the settings,
-- `localStorage` (per plugin and profile, up to 2 MB),
+- `localStorage` (per plugin and profile, up to 5 MB) and `NUVIO.files` for bigger data (below),
 - `NUVIO_PLATFORM === "tvos"`,
-- subtitles, catalogs, metadata, search and ratings from plugins (below).
+- subtitles, catalogs, metadata, search and ratings from plugins (below),
+- a context that stays loaded, results shown as they come, links resolved
+  only when played, the plugin's own pages and routes (below).
 
 ### Subtitles
 
@@ -161,6 +164,105 @@ module.exports = { getCatalog, getMeta, getRatings };
 (catalog, search, metadata for shows without an IMDb id, show and episode
 ratings) with the free TVmaze API.
 
+### Kept loaded
+
+A plugin that lists `tvos` in `supportedPlatforms` (or says `"keepAlive": true`)
+is loaded once and stays loaded while Nuvio runs: module-level variables,
+caches in memory and timers survive between calls, and a big plugin doesn't
+pay for parsing its code on every search. Several calls can run at the same
+time in that one context. It is loaded again when its code or settings change,
+after 10 minutes without calls, or when a call runs out of time.
+`"keepAlive": false` turns it off. Other plugins get a fresh context for every
+call, as on Android.
+
+### Results as they come
+
+`getStreams`' fifth argument has `emit(list)` on Apple TV. Each list (same
+format as the result) shows in the provider's group right away, while the
+plugin keeps searching; the list `getStreams` returns replaces them all. When
+the plugin fails or runs out of time, what it emitted stays.
+
+```js
+async function getStreams(tmdbId, type, season, episode, context) {
+  var emit = context && typeof context.emit === 'function' ? context.emit : null; // not on Android
+  var lists = await Promise.all(sources.map(async function (source) {
+    var found = await search(source);
+    if (emit) emit(found);
+    return found;
+  }));
+  return sortAll([].concat.apply([], lists));
+}
+```
+
+### Links resolved when played
+
+A stream can carry `resolve` (any JSON) instead of `url`. Nuvio gives it an
+address on the Apple TV itself; when the stream is played, the plugin's
+`resolveStream(resolve, { platform })` returns the real link (a string or
+`{ url }`) and the player is sent there. Use it for file hosts and services
+whose links expire or cost a request: nothing is resolved for the streams
+that aren't played. A resolved link is reused for 10 minutes.
+
+```js
+// getStreams result
+{ name: 'Webshare 1080p', title: 'Movie.2024.1080p.mkv', resolve: { ident: 'abc123' },
+  behaviorHints: { filename: 'Movie.2024.1080p.mkv' } }
+
+async function resolveStream(payload) {
+  var link = await fileLink(payload.ident); // e.g. Webshare file_link
+  return link;                              // or { url: link }
+}
+```
+
+- `resolve` must stay small (a few kB of JSON): it travels in the address.
+- `headers` on the stream are sent by the player (also after the redirect);
+  headers in `resolveStream`'s answer aren't.
+- The address stays the same between launches, so Continue Watching works.
+
+### Pages and routes
+
+`handleRequest(request)` answers web requests for the plugin:
+
+- **On the setup page.** With `"configPage": true` in the manifest, the
+  provider gets a **Configure** link on the "Set Up from a Computer" page that
+  opens the plugin's own page — for logins, lists of folders, anything the
+  Settings form can't do. Save what the user entered with
+  `NUVIO.settings.save(values)`. The page runs sandboxed: it can't use the
+  setup page's own API.
+- **For the player.** `NUVIO.server.url('path')` is the address of the
+  plugin's `handleRequest` on the Apple TV (`http://127.0.0.1:8766/…`) — use
+  it for a playlist the plugin builds, subtitles it converts, and the like.
+
+```js
+function handleRequest(request) {
+  // request: { method, path, query, headers, body, form, json, baseUrl, origin: 'setup' | 'device' }
+  if (request.method === 'POST' && request.path === '/save') {
+    NUVIO.settings.save({ token: request.form.token });
+    return { redirect: request.baseUrl };
+  }
+  if (request.path === '/list.m3u8') {
+    return { contentType: 'application/vnd.apple.mpegurl', body: '#EXTM3U\n…' };
+  }
+  return '<form method="post" action="save"><input name="token"><button>Save</button></form>';
+}
+```
+
+An answer is an HTML string or `{ status, headers, contentType, body | bodyBase64 | json, redirect }`;
+it must come within 30 seconds.
+
+### Storage
+
+- `localStorage` — up to 5 MB per plugin and profile, kept in one file.
+- `NUVIO.files` — text files up to **50 MB** together (500 files):
+  `write(name, text)` (throws `QuotaExceededError` when full), `read(name)`
+  (`null` when missing), `remove(name)`, `list()`, `usage()` (bytes). For
+  indexes, downloaded lists and other bigger data.
+- `NUVIO.settings` — `get()` the saved settings, `save(values)` new ones (as
+  the Settings form does).
+
+Both live in the Apple TV's cache, which the system may clear when space runs
+low — a plugin must be able to build them again.
+
 ### Writing and testing a plugin
 
 - **Test** (next to each provider on the TV and on the setup page) runs one
@@ -173,13 +275,21 @@ ratings) with the free TVmaze API.
   raw files are cached for up to 5 minutes; for instant changes serve the
   folder from your computer (`npx http-server -p 8080`) and add
   `http://<computer-ip>:8080/manifest.json`.
-- **Logs** show the latest `console.log` / `warn` / `error` lines per provider;
-  the setup page refreshes them live.
+- **Upload code** (setup page, Developer Mode on): runs a `.js` file from your
+  computer instead of the repository's, until you choose **Use the
+  repository's code**, turn Developer Mode off or remove the repository.
+- **Logs** show the latest `console.log` / `warn` / `error` lines per provider,
+  every request the plugin made (method, address with keys hidden, status,
+  time, size) and how long each call took; the setup page refreshes them live.
+- **Update Automatically** (Settings → Plugins, on by default) downloads the
+  repositories again at most once a day when Nuvio starts, so new plugin
+  versions arrive without pressing Update.
 
 ## Tests
 
 ```
 node test/plugin.test.js
+node test/platform.test.js
 node test/example-subtitles.test.js
 node test/example-tvmaze.test.js
 ```
@@ -192,4 +302,7 @@ app's polyfills) against local fake servers. To test your own plugin, copy
 const { createRuntime } = require('./harness');
 const rt = createRuntime({ code: fs.readFileSync('my-plugin.js', 'utf8'), scraperId: 'my-plugin' });
 const subs = await rt.call({ /* settings */ }, 'getSubtitles', ['movie', 'tt0133093', { imdbId: 'tt0133093' }]);
+// emit, NUVIO.files and a kept-loaded plugin:
+const kept = createRuntime({ code, scraperId: 'my-plugin', keepAlive: true });
+const streams = await kept.call({}, 'getStreams', ['tt0133093', 'movie', null, null, {}], { emitIndex: 4, onEmit: console.log });
 ```
