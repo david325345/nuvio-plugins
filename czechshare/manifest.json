@@ -10,7 +10,7 @@
       "description": "Webshare.cz (účet s VIP), Hellspy (zdarma) a Fastshare (účet) – zapni si, co používáš; stejné hledání a parser jako addon CzechShare",
       "version": "1.1.0",
       "filename": "czechshare.js",
-      "logo": "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public/logo.png",
+      "logo": "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public/logo.png?v=2",
       "supportedTypes": ["movie", "tv"],
       "resources": ["stream", "catalog", "meta"],
       "idPrefixes": ["tt", "kitsu:", "anilist:", "csfd:", "webshare-", "hellspy-", "fastshare-"],
