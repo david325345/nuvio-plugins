@@ -81,19 +81,20 @@ class PersistentCache {
     }
 }
 
-// Hellspy API pouští jen české a slovenské IP – z televize doma to jde napřímo
-async function hsRequest(url, headers) {
+// Hellspy API pouští jen české a slovenské IP – z televize doma to jde napřímo (Fastshare stejně)
+async function hsRequest(url, headers, { label = 'Hellspy' } = {}) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
         const resp = await fetch(url, { headers, signal: ctrl.signal });
-        if (!resp.status) throw new Error(resp.statusText || 'Hellspy neodpovídá');
+        if (!resp.status) throw new Error(resp.statusText || `${label} neodpovídá`);
         return { status: resp.status, text: await resp.text() };
     } catch (e) {
-        throw new Error(e && e.name === 'AbortError' ? 'Hellspy neodpovídá' : String((e && e.message) || e));
+        throw new Error(e && e.name === 'AbortError' ? `${label} neodpovídá` : String((e && e.message) || e));
     } finally {
         clearTimeout(timer);
     }
 }
+const fsRequest = (url, headers) => hsRequest(url, headers, { label: 'Fastshare' });
 
-module.exports = { config, log, dbg, PersistentCache, md5crypt, sha1hex, hsRequest, settings, CACHE_DIR: 'NUVIO.files' };
+module.exports = { config, log, dbg, PersistentCache, md5crypt, sha1hex, hsRequest, fsRequest, settings, CACHE_DIR: 'NUVIO.files' };

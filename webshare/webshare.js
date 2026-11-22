@@ -1,5 +1,5 @@
-// Webshare 1.0.1 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.11.1 (6643cdd, parser 68c9ce5f6512).
+// Webshare 1.0.2 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.12.0 (5ff1887, parser d68353723c61).
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -1126,20 +1126,21 @@ var require_platform = __commonJS({
         }
       }
     };
-    async function hsRequest(url, headers) {
+    async function hsRequest(url, headers, { label = "Hellspy" } = {}) {
       const ctrl = new AbortController();
       const timer = _setTimeout(() => ctrl.abort(), 8e3);
       try {
         const resp = await fetch(url, { headers, signal: ctrl.signal });
-        if (!resp.status) throw new Error(resp.statusText || "Hellspy neodpovídá");
+        if (!resp.status) throw new Error(resp.statusText || `${label} neodpovídá`);
         return { status: resp.status, text: await resp.text() };
       } catch (e) {
-        throw new Error(e && e.name === "AbortError" ? "Hellspy neodpovídá" : String(e && e.message || e));
+        throw new Error(e && e.name === "AbortError" ? `${label} neodpovídá` : String(e && e.message || e));
       } finally {
         _clearTimeout(timer);
       }
     }
-    module2.exports = { config, log, dbg, PersistentCache, md5crypt, sha1hex, hsRequest, settings, CACHE_DIR: "NUVIO.files" };
+    var fsRequest = (url, headers) => hsRequest(url, headers, { label: "Fastshare" });
+    module2.exports = { config, log, dbg, PersistentCache, md5crypt, sha1hex, hsRequest, fsRequest, settings, CACHE_DIR: "NUVIO.files" };
   }
 });
 
@@ -1203,7 +1204,12 @@ var require_engine = __commonJS({
     }
     var hasWs = (cfg) => !!(cfg && cfg.username && cfg.password);
     var hsOn = (cfg) => HELLSPY_ON && !!cfg && cfg.hellspy !== false;
-    var who = (cfg) => cfg && cfg.username || "hellspy";
+    var hasFs = (cfg) => !!(cfg && cfg.fs_username && cfg.fs_password);
+    var who = (cfg) => cfg && cfg.username || (cfg && cfg.fs_username ? `fs:${cfg.fs_username}` : "hellspy");
+    var isWs = (f) => !f.hs && !f.fs;
+    var lenFromSearch = (f) => !!(f.hs || f.fs);
+    var srcLetter = (f) => f.hs ? "h" : f.fs ? "f" : "w";
+    var srcRank = (f) => f.hs ? 2 : f.fs ? 1 : 0;
     function userKey(cfg) {
       return P.sha1hex(`${cfg.username}
 ${cfg.password}`);
@@ -1411,6 +1417,132 @@ ${cfg.password}`);
       const conv = Object.keys(d.conv).sort((a, b) => convHeight(b) - convHeight(a));
       return { ok: conv.length > 0, conv, subs: [...new Set(d.subs.map((s) => s.lang).filter(Boolean))], fn: d.filename };
     }
+    var FS_API = "https://fastshare.cz/api/api_kodi.php";
+    var FS_HEADERS = { "User-Agent": "Kodi/20", Accept: "application/json" };
+    var fsSessions = new TTLCache(500);
+    var fsFiles = new TTLCache(5e3);
+    var FsError = class extends Error {
+    };
+    var fsDownUntil = 0;
+    var fsFailStreak = 0;
+    var fsKey = (cfg) => P.sha1hex(`fastshare
+${cfg.fs_username}
+${cfg.fs_password}`);
+    async function fsGet(params, hash) {
+      if (Date.now() < fsDownUntil) throw new Error("Fastshare dočasně vypnutý (předchozí chyba)");
+      const qs = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+      try {
+        const resp = await P.fsRequest(`${FS_API}?${qs}`, hash ? { ...FS_HEADERS, Cookie: `FASTSHARE=${hash}` } : FS_HEADERS);
+        if (resp.status !== 200) throw Object.assign(new Error(`Fastshare HTTP ${resp.status}`), { status: resp.status });
+        let j;
+        try {
+          j = JSON.parse(resp.text);
+        } catch (e) {
+          throw new Error("Fastshare: neplatná odpověď");
+        }
+        fsFailStreak = 0;
+        return j;
+      } catch (e) {
+        if (++fsFailStreak >= 3) {
+          if (Date.now() >= fsDownUntil) log(`⚠️ Fastshare vynechán na 1 min (3 chyby za sebou): ${e.message}`);
+          fsDownUntil = Date.now() + 60 * 1e3;
+          fsFailStreak = 0;
+        }
+        throw e;
+      }
+    }
+    async function fsLogin(name, password) {
+      const j = await fsGet({ process: "login", login: name, password });
+      const u = j && j.user;
+      if (!u || typeof u.hash !== "string" || !/^[0-9a-f]{16,64}$/i.test(u.hash)) {
+        const msg = j && (j.error || j.message || u && u.error);
+        throw new FsError(typeof msg === "string" && msg.length < 200 ? `Fastshare: ${msg}` : "Přihlášení k Fastshare se nepovedlo – zkontroluj jméno a heslo.");
+      }
+      const d = u.data || {};
+      const mul = { B: 1 / 1048576, KB: 1 / 1024, MB: 1, GB: 1024, TB: 1048576 }[String(d.unit || "MB").toUpperCase()] ?? 1;
+      return { hash: u.hash, unlimited: u.unlimited === true || u.unlimited === 1 || u.unlimited === "1", creditMB: Math.round((parseFloat(d.value) || 0) * mul) };
+    }
+    async function fsSession(cfg, fresh = false) {
+      const key = fsKey(cfg);
+      const hit = fsSessions.get(key);
+      if (hit && hit.bad) throw new FsError(hit.bad);
+      if (hit && !fresh) return hit;
+      return once(`fsl:${key}`, async () => {
+        let r;
+        try {
+          r = await fsLogin(cfg.fs_username, cfg.fs_password);
+        } catch (e) {
+          if (e instanceof FsError) fsSessions.set(key, { bad: e.message }, 10 * 60 * 1e3);
+          throw e;
+        }
+        const s = { hash: r.hash, t: Date.now() };
+        fsSessions.set(key, s, 55 * 60 * 1e3);
+        return s;
+      });
+    }
+    var FS_RES_SCORE = { "4K": 4, "1080p": 3, "720p": 2, SD: 1 };
+    function fsResolution(r) {
+      const s = String(r || "").toLowerCase().trim();
+      let w = 0, h = 0, m;
+      if (m = s.match(/^(\d{3,4})\s*[x×]\s*(\d{3,4})$/)) {
+        w = +m[1];
+        h = +m[2];
+      } else if (m = s.match(/^(\d{3,4})[pi]$/)) h = +m[1];
+      else if (/^(4k|uhd)$/.test(s)) h = 2160;
+      else return null;
+      return w >= 3200 || h >= 2e3 ? "4K" : w >= 1800 || h >= 1e3 ? "1080p" : w >= 1200 || h >= 700 ? "720p" : "SD";
+    }
+    function fsUnits(v, table) {
+      if (!v || typeof v !== "object") return +v || 0;
+      return Math.round((parseFloat(v.value) || 0) * (table[String(v.unit || "").toUpperCase()] ?? 1));
+    }
+    var FS_SIZE = { B: 1, KB: 1024, MB: 1048576, GB: 1073741824 };
+    var FS_TIME = { S: 1, MIN: 60, M: 60, H: 3600 };
+    function fsFile(it) {
+      if (!it || !it.id || !it.filename) return null;
+      const id = String(it.id);
+      if (!/^\d+$/.test(id)) return null;
+      const f = {
+        fs: true,
+        ident: `fs:${id}`,
+        id,
+        name: String(it.filename),
+        size: fsUnits(it.data, FS_SIZE),
+        len: fsUnits(it.duration, FS_TIME),
+        res: fsResolution(it.resolution),
+        resRaw: it.resolution ? String(it.resolution) : void 0,
+        img: typeof it.thumbnail === "string" && /^https?:/.test(it.thumbnail) ? it.thumbnail : null,
+        dl: typeof it.download_url === "string" && /^https:\/\/[\w.-]+\.fastshare\.(cloud|cz)\//.test(it.download_url) ? it.download_url : null
+      };
+      fsFiles.set(id, f, 24 * H);
+      return f;
+    }
+    async function fsSearch(cfg, query, limit = 200) {
+      const run = async (hash) => {
+        const j = await fsGet({ process: "search", pagination: Math.min(limit, 200), term: query, adult: 0 }, hash);
+        const list2 = j && j.search && j.search.file;
+        return Array.isArray(list2) ? list2 : list2 && typeof list2 === "object" ? [list2] : [];
+      };
+      let s = await fsSession(cfg);
+      let list = null, err = null;
+      try {
+        list = await run(s.hash);
+      } catch (e) {
+        err = e;
+      }
+      if ((err ? err.status === 401 || err.status === 403 : !list.length) && Date.now() - s.t > 2 * 60 * 1e3) {
+        s = await fsSession(cfg, true);
+        list = await run(s.hash);
+      } else if (err) throw err;
+      return list.map(fsFile).filter(Boolean);
+    }
+    async function fsPlayLink(cfg, id, filename) {
+      const f = fsFiles.get(String(id));
+      const dl = f && f.dl || `https://data.fastshare.cloud/download.php?id=${encodeURIComponent(id)}`;
+      const s = await fsSession(cfg);
+      return `${dl}${dl.includes("?") ? "&" : "?"}stream=1&session=${s.hash}&filename=${encodeURIComponent(filename || f && f.name || "video")}`;
+    }
+    var fsDown = () => Date.now() < fsDownUntil;
     var indexerDownUntil = /* @__PURE__ */ new Map();
     async function resolveIds(params) {
       const qs = Object.entries(params).filter(([, v]) => v !== void 0 && v !== null && v !== "").map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
@@ -1969,11 +2101,12 @@ ${cfg.password}`);
       const seen = /* @__PURE__ */ new Set();
       return [dedupe(w1, seen).slice(0, 8), dedupe(w2, seen).slice(0, 10)];
     }
-    async function runQueries(cfg, queries, { ws = true, hs = true, budgetMs = 4e3 } = {}) {
+    async function runQueries(cfg, queries, { ws = true, hs = true, fs = true, budgetMs = 4e3 } = {}) {
       const out = /* @__PURE__ */ new Map();
       const deadline = Date.now() + budgetMs;
       let degraded = false, done = false;
-      const finished = { WS: false, HS: false }, okCount = { WS: 0, HS: 0 }, errCount = { WS: 0, HS: 0 }, lastErr = { WS: "", HS: "" };
+      const finished = { WS: false, HS: false, FS: false }, okCount = { WS: 0, HS: 0, FS: 0 }, errCount = { WS: 0, HS: 0, FS: 0 }, lastErr = { WS: "", HS: "", FS: "" };
+      const muted = { WS: () => false, HS: () => Date.now() < hsDownUntil, FS: () => Date.now() < fsDownUntil };
       const pool = async (n, search, label) => {
         let i = 0;
         const worker = async () => {
@@ -1989,7 +2122,8 @@ ${cfg.password}`);
               degraded = true;
               errCount[label]++;
               lastErr[label] = String(e.message || e).slice(0, 80);
-              if (label === "WS" || Date.now() >= hsDownUntil) log(`  ⚠️ ${label} hledání "${q}" selhalo: ${e.message}`);
+              const quiet = e instanceof FsError && errCount[label] > 1;
+              if (!quiet && !muted[label]()) log(`  ⚠️ ${label} hledání "${q}" selhalo: ${e.message}`);
             }
           }
           if (i < queries.length) degraded = true;
@@ -1999,7 +2133,8 @@ ${cfg.password}`);
       };
       const all = Promise.all([
         ws && hasWs(cfg) ? pool(4, async (q, limit) => (await withToken(cfg, (t) => wsSearch(t, q, limit))).files, "WS") : null,
-        hs && hsOn(cfg) ? pool(3, (q, limit) => hsSearch(q, limit), "HS") : null
+        hs && hsOn(cfg) ? pool(3, (q, limit) => hsSearch(q, limit), "HS") : null,
+        fs && hasFs(cfg) ? pool(3, (q) => fsSearch(cfg, q, 200), "FS") : null
       ]);
       const timedOut = await Promise.race([all.then(() => false), new Promise((r) => _setTimeout(() => r(true), budgetMs).unref())]);
       if (timedOut) {
@@ -2007,9 +2142,9 @@ ${cfg.password}`);
         degraded = true;
         log(`  ⏱ hledání přerušeno po ${budgetMs} ms – vracím, co je hotové`);
       }
-      const dead = { ws: !finished.WS || !okCount.WS, hs: !finished.HS || !okCount.HS };
+      const dead = { ws: !finished.WS || !okCount.WS, hs: !finished.HS || !okCount.HS, fs: !finished.FS || !okCount.FS };
       const deg = {};
-      for (const [label, on] of [["WS", ws && hasWs(cfg)], ["HS", hs && hsOn(cfg)]]) {
+      for (const [label, on] of [["WS", ws && hasWs(cfg)], ["HS", hs && hsOn(cfg)], ["FS", fs && hasFs(cfg)]]) {
         if (!on || finished[label] && !errCount[label]) continue;
         deg[label.toLowerCase()] = { err: errCount[label], ok: okCount[label], ...finished[label] ? {} : { timeout: true }, ...lastErr[label] ? { msg: lastErr[label] } : {} };
       }
@@ -2021,7 +2156,9 @@ ${cfg.password}`);
         wsFailed: !!(ws && hasWs(cfg) && errCount.WS && !okCount.WS),
         // vypršel čas a neprošel ani jeden dotaz (poskytovatel "visí" – typicky v celou hodinu)
         wsTimedOut: !!(ws && hasWs(cfg) && !finished.WS && !okCount.WS),
-        hsTimedOut: !!(hs && hsOn(cfg) && !finished.HS && !okCount.HS && Date.now() >= hsDownUntil)
+        hsTimedOut: !!(hs && hsOn(cfg) && !finished.HS && !okCount.HS && Date.now() >= hsDownUntil),
+        fsFailed: !!(fs && hasFs(cfg) && errCount.FS && !okCount.FS && Date.now() >= fsDownUntil),
+        fsTimedOut: !!(fs && hasFs(cfg) && !finished.FS && !okCount.FS && Date.now() >= fsDownUntil)
       };
     }
     function nameOk(fileName, n, plan) {
@@ -2298,6 +2435,10 @@ ${cfg.password}`);
       } else {
         ls = M.langScore(lang);
       }
+      if (f.fs && f.res && !q.cam) {
+        q.resolution = f.res;
+        q.score = FS_RES_SCORE[f.res];
+      }
       if (info && info.w) {
         const w = info.w, h = info.h;
         const res = w >= 3200 || h >= 2e3 ? ["4K", 4] : w >= 1800 || h >= 1e3 ? ["1080p", 3] : w >= 1200 || h >= 700 ? ["720p", 2] : ["SD", 1];
@@ -2319,7 +2460,7 @@ ${cfg.password}`);
     }
     function rankFiles(items) {
       return items.map((it) => ({ ...it, ...describe(it.f, it.info, it.conv) })).sort(
-        (a, b) => (a.q.cam ? 1 : 0) - (b.q.cam ? 1 : 0) || b.ls - a.ls || b.q.score - a.q.score || (a.f.hs ? 1 : 0) - (b.f.hs ? 1 : 0) || // při stejné kvalitě Webshare (originál, ověřený zvuk)
+        (a, b) => (a.q.cam ? 1 : 0) - (b.q.cam ? 1 : 0) || b.ls - a.ls || b.q.score - a.q.score || srcRank(a.f) - srcRank(b.f) || // při stejné kvalitě Webshare (originál, ověřený zvuk)
         (b.exact ? 1 : 0) - (a.exact ? 1 : 0) || b.f.size - a.f.size
       );
     }
@@ -2492,7 +2633,7 @@ ${cfg.password}`);
     }
     async function enrichFiles(cfg, items, deadlineMs = 1500) {
       if (!hasWs(cfg)) return true;
-      const todo = items.filter((it) => !it.f.hs).map((it) => it.f.ident).filter((id) => fileCache.get(id) === void 0);
+      const todo = items.filter((it) => isWs(it.f)).map((it) => it.f.ident).filter((id) => fileCache.get(id) === void 0);
       if (!todo.length) return true;
       let i = 0;
       const worker = async () => {
@@ -2546,11 +2687,11 @@ ${cfg.password}`);
       }
       return out;
     }
-    var sizeKey = (f) => f.size ? `${f.hs ? "h" : "w"}:${f.size}` : null;
-    function dedupeBySize(items, onlyHs, dropped) {
+    var sizeKey = (f) => f.size ? `${srcLetter(f)}:${f.size}` : null;
+    function dedupeBySize(items, onlySearchLen, dropped) {
       const seen = /* @__PURE__ */ new Map();
       return items.filter((it) => {
-        if (onlyHs && !it.f.hs) return true;
+        if (onlySearchLen && !lenFromSearch(it.f)) return true;
         const k = sizeKey(it.f);
         if (!k) return true;
         if (seen.has(k)) {
@@ -2602,14 +2743,14 @@ ${cfg.password}`);
     function wsAudioBySize(items) {
       const m = /* @__PURE__ */ new Map();
       for (const it of items) {
-        if (it.f.hs || !it.f.size) continue;
+        if (!isWs(it.f) || !it.f.size) continue;
         const fi = fileCache.get(it.f.ident);
         if (fi && fi.au && fi.au.length && !m.has(it.f.size)) m.set(it.f.size, fi.au);
       }
       return m;
     }
     async function findFiles(type, id, cfg) {
-      const src = `${hasWs(cfg) ? "w" : ""}${hsOn(cfg) ? "h" : ""}`;
+      const src = `${hasWs(cfg) ? "w" : ""}${hsOn(cfg) ? "h" : ""}${hasFs(cfg) ? "f" : ""}`;
       if (!src) return { plan: null, items: [], queries: 0, ms: 0 };
       const key = `res:${type}:${id}:${src}`;
       const hit = resultCache.get(key);
@@ -2624,11 +2765,12 @@ ${cfg.password}`);
         const [w1, w2] = buildQueries(plan);
         const r1 = await runQueries(cfg, w1, { budgetMs: 4e3 });
         const deg = { ...r1.deg };
-        const wsAgain = r1.wsFailed || r1.wsTimedOut, hsAgain = r1.hsTimedOut;
-        if (wsAgain || hsAgain) {
-          log(`  🔁 ${[wsAgain && "Webshare", hsAgain && "Hellspy"].filter(Boolean).join(" + ")}: první vlna ${r1.wsFailed ? "selhala" : "nestihla"} – opakuji`);
-          await new Promise((r) => _setTimeout(r, r1.wsFailed && !r1.wsTimedOut ? 300 : 1e3).unref());
-          const rr = await runQueries(cfg, w1, { ws: wsAgain, hs: hsAgain, budgetMs: 2500 });
+        const wsAgain = r1.wsFailed || r1.wsTimedOut, hsAgain = r1.hsTimedOut, fsAgain = r1.fsFailed || r1.fsTimedOut;
+        if (wsAgain || hsAgain || fsAgain) {
+          const failed = r1.wsFailed || r1.fsFailed, slow = r1.wsTimedOut || r1.hsTimedOut || r1.fsTimedOut;
+          log(`  🔁 ${[wsAgain && "Webshare", hsAgain && "Hellspy", fsAgain && "Fastshare"].filter(Boolean).join(" + ")}: první vlna ${failed ? "selhala" : "nestihla"} – opakuji`);
+          await new Promise((r) => _setTimeout(r, failed && !slow ? 300 : 1e3).unref());
+          const rr = await runQueries(cfg, w1, { ws: wsAgain, hs: hsAgain, fs: fsAgain, budgetMs: 2500 });
           for (const [k, v] of rr.files) if (!r1.files.has(k)) r1.files.set(k, v);
           if (wsAgain) {
             deg.wsRetry = rr.wsFailed || rr.wsTimedOut ? "selhalo" : "ok";
@@ -2637,6 +2779,10 @@ ${cfg.password}`);
           if (hsAgain) {
             deg.hsRetry = rr.hsTimedOut || rr.dead.hs ? "selhalo" : "ok";
             if (!rr.dead.hs) r1.dead.hs = false;
+          }
+          if (fsAgain) {
+            deg.fsRetry = rr.fsFailed || rr.fsTimedOut || rr.dead.fs ? "selhalo" : "ok";
+            if (!rr.dead.fs) r1.dead.fs = false;
           }
         }
         if (plan.sameNameP) {
@@ -2651,10 +2797,11 @@ ${cfg.password}`);
         let degraded = r1.degraded;
         let items = filterFiles([...files.values()], plan);
         let queries = w1.length;
-        const wsFew = hasWs(cfg) && !r1.dead.ws && items.filter((it) => !it.f.hs).length < 5;
+        const wsFew = hasWs(cfg) && !r1.dead.ws && items.filter((it) => isWs(it.f)).length < 5;
         const hsFew = hsOn(cfg) && !r1.dead.hs && items.filter((it) => it.f.hs).length < 5;
-        if ((wsFew || hsFew) && w2.length) {
-          const r2 = await runQueries(cfg, w2, { ws: wsFew, hs: hsFew, budgetMs: 3e3 });
+        const fsFew = hasFs(cfg) && !r1.dead.fs && items.filter((it) => it.f.fs).length < 5;
+        if ((wsFew || hsFew || fsFew) && w2.length) {
+          const r2 = await runQueries(cfg, w2, { ws: wsFew, hs: hsFew, fs: fsFew, budgetMs: 3e3 });
           for (const [k, v] of r2.files) if (!files.has(k)) files.set(k, v);
           for (const [k, v] of Object.entries(r2.deg)) deg[`${k}2`] = v;
           degraded = degraded || r2.degraded;
@@ -2662,9 +2809,9 @@ ${cfg.password}`);
           queries += w2.length;
         }
         const dupes = /* @__PURE__ */ new Map();
-        let ranked = dedupeHellspyCopies(dedupeBySize(rankFiles(items.map((it) => it.f.hs ? { ...it, info: { len: it.f.len } } : it)), true, dupes), dupes);
+        let ranked = dedupeHellspyCopies(dedupeBySize(rankFiles(items.map((it) => lenFromSearch(it.f) ? { ...it, info: { len: it.f.len } } : it)), true, dupes), dupes);
         const max = plan.type === "movie" ? 30 : 25;
-        const top = enrichTargets(ranked, max + 10);
+        const top = enrichTargets(ranked.filter((it) => !it.f.fs), max + 10);
         const [completeWs, completeHs] = await Promise.all([
           enrichFiles(cfg, top),
           hsOn(cfg) ? enrichHellspy(top.filter((it) => it.f.hs).slice(0, 15)) : true
@@ -2677,12 +2824,12 @@ ${cfg.password}`);
         const wsAu = wsAudioBySize(ranked);
         const playable = ranked.map((it) => {
           const fi = fileCache.get(it.f.ident);
-          if (it.f.hs) return { ...it, info: { ...fi || {}, len: it.f.len, au: wsAu.get(it.f.size) || void 0 } };
+          if (lenFromSearch(it.f)) return { ...it, info: { ...fi || {}, len: it.f.len, au: wsAu.get(it.f.size) || void 0 } };
           return { ...it, info: fi || it.info };
         }).filter((it) => !it.info || it.info.ok !== false);
         const rejected = (items.rejected || []).map((it) => {
-          const fi = it.f.hs ? null : fileCache.get(it.f.ident);
-          return { ...it, info: it.f.hs ? { len: it.f.len } : fi || null };
+          const fi = lenFromSearch(it.f) ? null : fileCache.get(it.f.ident);
+          return { ...it, info: lenFromSearch(it.f) ? { len: it.f.len } : fi || null };
         }).filter((it) => it.info && it.info.len && it.info.ok !== false);
         const rescued = rescueOlderSeries(plan, playable, rejected);
         if (rescued.length) playable.push(...rescued);
@@ -2753,7 +2900,7 @@ ${cfg.password}`);
           let j = judgeFile(f, plan);
           if (!j.ok && rescued && rescued.has(f.ident)) j = { ok: true, reason: RESCUED };
           const rec = { n: f.name, s: f.size, ok: j.ok, r: j.reason };
-          if (f.hs) rec.src = "hs";
+          if (!isWs(f)) rec.src = f.hs ? "hs" : "fs";
           if (dupes && dupes.has(f.ident)) rec.dup = 1;
           if (j.ok && durationBad) {
             let id = f.ident;
@@ -2764,8 +2911,9 @@ ${cfg.password}`);
             }
           }
           const fi = fileCache.get(f.ident);
-          if (f.hs) {
+          if (lenFromSearch(f)) {
             if (f.len) rec.len = f.len;
+            if (f.fs && f.resRaw) rec.res = f.resRaw;
             if (fi) {
               rec.av = fi.ok;
               if (fi.conv) rec.conv = fi.conv;
@@ -2886,8 +3034,28 @@ ${res}`,
       }
       return stream;
     }
+    function fsPlayUrl(base, cfgB64, f) {
+      return `${base}/${cfgB64}/fs/play/${encodeURIComponent(f.id)}/${encodeURIComponent(safeName(f.name))}`;
+    }
+    function fsToStream(item, base, cfgB64) {
+      const { f, lang, q, info } = item;
+      const tech = [q.source, q.codec, q.audio, q.hdr ? "HDR" : null].filter(Boolean).join(" · ");
+      const meta = [f.size ? `💾 ${formatSize(f.size)}` : null, info && info.len ? `⏱ ${formatLength(info.len)}` : null, tech].filter(Boolean).join("  ·  ");
+      return {
+        name: `Fastshare
+${q.cam ? "CAM" : q.resolution || "SD"}`,
+        title: [f.name, audioSubsLabel(item), meta].filter(Boolean).join("\n"),
+        url: fsPlayUrl(base, cfgB64, f),
+        behaviorHints: {
+          bingeGroup: `fastshare-${q.resolution || "sd"}-${lang.cz ? "cz" : lang.sk ? "sk" : "x"}${lang.dub ? "-dub" : ""}`,
+          filename: f.name,
+          videoSize: f.size || void 0
+        }
+      };
+    }
     function toStream(item, base, cfgB64) {
       if (item.f.hs) return hsToStream(item, base, cfgB64);
+      if (item.f.fs) return fsToStream(item, base, cfgB64);
       const { f, lang, q, info } = item;
       const lbl = audioSubsLabel(item);
       const tech = [q.source, q.codec, q.audio, q.hdr ? "HDR" : null].filter(Boolean).join(" · ");
@@ -2923,12 +3091,18 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
         if (!hf) return [];
         return rankFiles(expandHellspy([{ f: hf.f, exact: true, info: hf.info }])).map((it) => toStream(it, base, cfgB64));
       }
+      if (id.startsWith("fastshare-")) {
+        if (!hasFs(cfg)) return [];
+        const f = fsFileFromId(id);
+        if (!f) return [];
+        return [toStream(rankFiles([{ f, exact: true, info: { len: f.len } }])[0], base, cfgB64)];
+      }
       const res = await findFiles(type, id, cfg);
       const max = type === "movie" ? 30 : 25;
       const streams = res.items.slice(0, max).map((it) => toStream(it, base, cfgB64));
       const p = res.plan;
-      const nHs = res.items.slice(0, max).filter((it) => it.f.hs).length;
-      log(`🎬 ${type} ${id} [${who(cfg)}] ${p ? p.isAnime ? `anime AL${p.anilistId}` : p.source : "bez názvů"}${p ? ` | názvy: ${p.names.map((n) => n.text).join(" / ")}` : ""} | dotazů ${res.queries || 0}, souborů ${res.total || 0}, streamů ${streams.length}${nHs ? ` (Hellspy ${nHs})` : ""}${res.cached ? " (cache)" : ` | ${res.ms} ms`}${res.items.length ? ` | 1.: ${res.items[0].f.name}` : ""}`);
+      const nHs = res.items.slice(0, max).filter((it) => it.f.hs).length, nFs = res.items.slice(0, max).filter((it) => it.f.fs).length;
+      log(`🎬 ${type} ${id} [${who(cfg)}] ${p ? p.isAnime ? `anime AL${p.anilistId}` : p.source : "bez názvů"}${p ? ` | názvy: ${p.names.map((n) => n.text).join(" / ")}` : ""} | dotazů ${res.queries || 0}, souborů ${res.total || 0}, streamů ${streams.length}${nHs || nFs ? ` (${[nHs && `Hellspy ${nHs}`, nFs && `Fastshare ${nFs}`].filter(Boolean).join(", ")})` : ""}${res.cached ? " (cache)" : ` | ${res.ms} ms`}${res.items.length ? ` | 1.: ${res.items[0].f.name}` : ""}`);
       return streams;
     }
     async function handleCatalog(type, extra, cfg, base) {
@@ -3038,8 +3212,70 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
         description: desc
       };
     }
+    function fsFileFromId(id) {
+      const m = String(id).match(/^fastshare-(\d+)$/);
+      if (!m) return null;
+      return fsFiles.get(m[1]) || { fs: true, ident: `fs:${m[1]}`, id: m[1], name: `Fastshare ${m[1]}`, size: 0, len: 0, res: null, img: null, dl: null };
+    }
+    async function handleCatalogFs(type, extra, cfg, base) {
+      if (!hasFs(cfg) || cfg.fastshare_search === false) return [];
+      const query = (extra.search || "").trim();
+      if (!query) return [];
+      let files = (await fsSearch(cfg, query, 200)).filter((f) => !M.isNonVideo(f.name));
+      const seen = /* @__PURE__ */ new Set();
+      files = files.filter((f) => {
+        if (!f.size) return true;
+        if (seen.has(f.size)) return false;
+        seen.add(f.size);
+        return true;
+      }).slice(0, 100);
+      const backdrop = `${base}/webshare-backdrop.jpg`;
+      log(`🔍 fastshare hledat "${query}" [${who(cfg)}] → ${files.length}`);
+      archiveWrite({
+        t: (/* @__PURE__ */ new Date()).toISOString(),
+        kind: "catalog",
+        src: "fs",
+        q: query,
+        count: files.length,
+        files: files.map((f) => ({ n: f.name, s: f.size, len: f.len, res: f.resRaw }))
+      });
+      return files.map((f) => {
+        const q = M.detectQuality(f.name);
+        const res = f.res || q.resolution;
+        const lbl = langLabel(M.detectLang(f.name));
+        return {
+          id: `fastshare-${f.id}`,
+          type,
+          name: f.name,
+          poster: f.img || backdrop,
+          posterShape: "landscape",
+          background: f.img || backdrop,
+          description: [lbl, res, f.len ? formatLength(f.len) : null, formatSize(f.size)].filter(Boolean).join(" · "),
+          releaseInfo: [res, f.len ? formatLength(f.len) : null, formatSize(f.size)].filter(Boolean).join(" · ")
+        };
+      });
+    }
+    function handleMetaFs(type, id, cfg, base) {
+      if (!hasFs(cfg)) return null;
+      const f = fsFileFromId(id);
+      if (!f) return null;
+      const q = M.detectQuality(f.name);
+      const lbl = langLabel(M.detectLang(f.name));
+      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const desc = [
+        `📄 ${f.name}`,
+        "",
+        lbl ? `🗣️ ${lbl}` : null,
+        f.res || q.resolution ? `📺 ${f.res || q.resolution}` : null,
+        [q.source, q.codec, q.audio].filter(Boolean).length ? `🎬 ${[q.source, q.codec, q.audio].filter(Boolean).join(" · ")}` : null,
+        f.len ? `⏱ ${formatLength(f.len)}` : null,
+        f.size ? `💾 ${formatSize(f.size)}` : null
+      ].filter((x) => x !== null).join("\n");
+      return { id, type, name: f.name, poster: f.img || backdrop, posterShape: "landscape", background: f.img || backdrop, description: desc };
+    }
     async function handleMeta(type, id, cfg, base) {
       if (id.startsWith("hellspy-")) return handleMetaHs(type, id, cfg, base);
+      if (id.startsWith("fastshare-")) return handleMetaFs(type, id, cfg, base);
       if (!id.startsWith("webshare-") || !hasWs(cfg)) return null;
       const ident = id.slice(9);
       const r = await withToken(cfg, (t) => wsFileInfo(t, ident));
@@ -3088,6 +3324,29 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       once,
       hasWs,
       hsOn,
+      hasFs,
+      isWs,
+      lenFromSearch,
+      srcLetter,
+      srcRank,
+      FS_API,
+      FS_HEADERS,
+      fsSessions,
+      fsFiles,
+      FsError,
+      fsGet,
+      fsLogin,
+      fsSession,
+      fsResolution,
+      fsFile,
+      fsSearch,
+      fsPlayLink,
+      fsDown,
+      fsPlayUrl,
+      fsToStream,
+      fsFileFromId,
+      handleCatalogFs,
+      handleMetaFs,
       who,
       userKey,
       WS_HEADERS,
@@ -3215,8 +3474,8 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
 // webshare/src/plugin.js
 init_timers();
 var E = require_engine();
-var VERSION = "1.0.1";
-var ENGINE_VERSION = true ? "8.11.1" : "dev";
+var VERSION = "1.0.2";
+var ENGINE_VERSION = true ? "8.12.0" : "dev";
 var ASSETS = "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public";
 var ARCHIVE_URL = "https://webshare-stremio.freeddns.org/api/archive";
 function onSettings() {

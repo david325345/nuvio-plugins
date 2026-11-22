@@ -5,7 +5,7 @@
 // s odkazem až při spuštění, katalogy „Webshare Hledat“ / „Hellspy Hledat“ a anonymní archiv hledání.
 const E = require('webshare-engine');
 
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const ENGINE_VERSION = typeof __ENGINE_VERSION__ === 'string' ? __ENGINE_VERSION__ : 'dev';
 // obrázky (pozadí, logo) z veřejného repozitáře addonu
 const ASSETS = 'https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public';
