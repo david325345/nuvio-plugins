@@ -9,6 +9,7 @@
       "name": "Usenet Direct",
       "description": "Newznab indexers by IMDb id → Nuvio Usenet",
       "version": "1.2.0",
+      "logo": "https://raw.githubusercontent.com/david325345/nuvio-plugins/main/usenet-direct-logo.png",
       "filename": "usenet-direct.js",
       "supportedTypes": [
         "movie",
