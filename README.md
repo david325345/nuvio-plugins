@@ -43,6 +43,28 @@ indexer keys never leave it except to the indexer itself.
 The plugin runs on Apple TV only (`supportedPlatforms: ["tvos"]`); Nuvio on
 Android doesn't offer it because it can't play `nzbUrl` streams.
 
+## Webshare
+
+Czech and Slovak movies, series and anime from **Webshare.cz** (your own account;
+playing needs VIP) and **Hellspy** (free, no account). It has its own repository
+link, so it is installed separately from Usenet Direct:
+
+```
+https://raw.githubusercontent.com/david325345/nuvio-plugins/main/webshare/manifest.json
+```
+
+| | |
+|---|---|
+| **Search and parser** | The same as the [Webshare add-on](https://github.com/david325345/webshare-stremio-docker): Czech/Slovak titles from TMDB and ČSFD, anime names from the NimeToDex indexer, file names checked against the title, year, season/episode and runtime; Czech/Slovak dubbing and subtitles first. The add-on's `lib/engine.js` is bundled into `webshare/webshare.js` by `webshare/build.mjs`, so a parser fix in the add-on reaches the plugin with the next build. |
+| **Ids** | `tt…` (movies and episodes), `kitsu:`, `anilist:` (anime), `csfd:` (titles only on ČSFD), and its own catalog items. |
+| **Playing** | Links are made when a stream is played (`resolve`): Webshare's `file_link` from your own connection, Hellspy's MP4 conversion. Hellspy answers Czech and Slovak addresses only, which a TV at home has, so no proxy is needed. Hellspy's subtitles come with its streams. |
+| **Catalogs** | "Webshare Hledat" and "Hellspy Hledat" in Search, with details of each file. |
+| **Settings** | Webshare login (kept in the Keychain), Hellspy on/off, the two catalogs, your own TMDB key (Nuvio's is used otherwise). **Verify** logs in and shows the VIP days. |
+| **Help improve search** | Off by default. When on, every search sends an anonymous record (the title searched for and the file names found, with the verdict) to the add-on's server, where the parser is fixed from them for everyone. Nothing about the user is sent or stored. |
+
+The plugin's texts are in Czech, like the add-on's. It runs on Apple TV only.
+Build: `npm install && node webshare/build.mjs ../webshare-stremio-docker`.
+
 ## The plugin format on Apple TV
 
 Plugins use the same format as Nuvio on Android (`manifest.json` with a
@@ -292,6 +314,7 @@ node test/plugin.test.js
 node test/platform.test.js
 node test/example-subtitles.test.js
 node test/example-tvmaze.test.js
+node test/webshare.test.js
 ```
 
 Runs the plugins the way Apple TV does (a bare JavaScript context with the
