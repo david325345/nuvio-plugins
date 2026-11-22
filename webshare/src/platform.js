@@ -2,7 +2,7 @@
 // Platforma jádra addonu Webshare (lib/engine.js) v pluginu pro Nuvio na Apple TV:
 // veřejné adresy služeb, mezipaměť v NUVIO.files (jinak localStorage), MD5-crypt v čistém JS
 // a Hellspy napřímo z televize (česká IP, proxy není potřeba).
-const { md5crypt, sha1hex } = require('./hash');
+const { md5crypt, sha1hex } = require('../../shared/hash');
 
 const settings = () => (typeof SCRAPER_SETTINGS === 'object' && SCRAPER_SETTINGS) || {};
 const nuvioTmdbKey = () => (typeof TMDB_API_KEY === 'string' ? TMDB_API_KEY.trim() : '');

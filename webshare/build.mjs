@@ -38,7 +38,7 @@ await build({
     target: 'es2020',
     charset: 'utf8',
     legalComments: 'none',
-    inject: [path.join(here, 'src', 'timers.js')],
+    inject: [path.join(here, '..', 'shared', 'timers.js')],
     define: { __ENGINE_VERSION__: JSON.stringify(engineVersion) },
     plugins: [alias],
     banner: { js: `// Webshare ${pluginVersion} – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.\n` +

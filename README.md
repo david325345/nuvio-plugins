@@ -65,6 +65,27 @@ https://raw.githubusercontent.com/david325345/nuvio-plugins/main/webshare/manife
 The plugin's texts are in Czech, like the add-on's. It runs on Apple TV only.
 Build: `npm install && node webshare/build.mjs ../webshare-stremio-docker`.
 
+## SKTorrent
+
+Czech and Slovak torrents from **sktorrent.eu**, played through **Real-Debrid**
+and/or **TorBox** (your own keys). Its own repository link:
+
+```
+https://raw.githubusercontent.com/david325345/nuvio-plugins/main/sktorrent/manifest.json
+```
+
+| | |
+|---|---|
+| **Search and parser** | The [SKTorrent add-on](https://github.com/david325345/sktorrent-realdebrid-docker)'s own code (`lib/`: search, title matching, ČSFD checks, ordering, playing), bundled into `sktorrent/sktorrent.js` by `sktorrent/build.mjs`. A parser fix in the add-on reaches the plugin with the next build. |
+| **Ids** | `tt…` (movies and episodes), `csfd:` (titles only on ČSFD), and its own catalog items. |
+| **Playing** | Links are made when a stream is played (`resolve`): the torrent is added to Real-Debrid/TorBox and the right file unrestricted, from your own connection. A torrent still downloading plays the add-on's info video. Each stream list gets its own mark, so a torrent that was downloading is resolved again the next time the streams are opened (Nuvio keeps a resolved link for 10 minutes). |
+| **SKT login** | Optional (more content). The plugin logs in with your name and password and keeps the cookies; **Verify** checks the keys and the login. |
+| **Catalog** | "SKTorrent" in Search, with details of each torrent. |
+
+Build: `npm install && node sktorrent/build.mjs ../sktorrent-realdebrid-docker`
+(`SKT_ARCHIVE_URL=https://…/api/archive` adds the "Help improve search" option, off by default).
+The tests run cheerio through `test/dom-natives.js` (the app uses SwiftSoup).
+
 ## The plugin format on Apple TV
 
 Plugins use the same format as Nuvio on Android (`manifest.json` with a

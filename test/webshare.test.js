@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createRuntime } = require('./harness');
-const H = require('../webshare/src/hash');
+const H = require('../shared/hash');
 
 const code = fs.readFileSync(path.join(__dirname, '..', 'webshare', 'webshare.js'), 'utf8');
 const sha1hex = s => require('node:crypto').createHash('sha1').update(s).digest('hex');
