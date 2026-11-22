@@ -9,7 +9,8 @@
 // `call(settings, name, args, options)` sets SCRAPER_SETTINGS, loads the
 // plugin (once with `keepAlive: true`, as Apple TV does for plugins that list
 // `tvos` in `supportedPlatforms`) and awaits the exported function.
-// `options.emitIndex` gives that argument `emit(list)`; the lists land in
+// `natives` adds native calls the app provides, e.g. `require('./dom-natives')()` so that
+// `cheerio` works in Node (the app uses SwiftSoup). `options.emitIndex` gives that argument `emit(list)`; the lists land in
 // `options.onEmit` and in `rt.emitted`. `logs` collects console output,
 // `files` the plugin's NUVIO.files and `savedSettings` what NUVIO.settings.save stored.
 'use strict';
@@ -21,7 +22,7 @@ const crypto = require('node:crypto');
 const polyfills = fs.readFileSync(path.join(__dirname, 'nuvio-tvos-polyfills.js'), 'utf8');
 const FILES_LIMIT = 50 * 1024 * 1024;
 
-function createRuntime({ code, scraperId = 'plugin', storage = {}, files = {}, globals = {}, keepAlive = false }) {
+function createRuntime({ code, scraperId = 'plugin', storage = {}, files = {}, globals = {}, natives = {}, keepAlive = false }) {
   const done = new Map();
   const emitHandlers = new Map();
   const logs = [];
@@ -75,6 +76,8 @@ function createRuntime({ code, scraperId = 'plugin', storage = {}, files = {}, g
     emit: (callId, json) => { const handler = emitHandlers.get(callId); if (handler) handler(JSON.parse(json)); },
     done: (json, error, callId) => done.set(callId, { json, error }),
   };
+  // extra natives (e.g. test/dom-natives.js for cheerio, which the app does with SwiftSoup)
+  Object.assign(ctx.__nuvioNative, natives);
   vm.runInContext(polyfills, ctx);
   Object.assign(ctx, globals);
   runtime.call = async function (settings, name, args, options = {}) {

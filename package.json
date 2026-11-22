@@ -1,0 +1,14 @@
+{
+  "name": "nuvio-plugins",
+  "private": true,
+  "description": "Nuvio plugins for Apple TV",
+  "scripts": {
+    "build:webshare": "node webshare/build.mjs ../webshare-stremio-docker",
+    "test": "node test/plugin.test.js && node test/platform.test.js && node test/example-subtitles.test.js && node test/example-tvmaze.test.js && node test/webshare.test.js && node test/sktorrent.test.js",
+    "build:sktorrent": "node sktorrent/build.mjs ../sktorrent-realdebrid-docker"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "cheerio": "1.0.0"
+  }
+}
