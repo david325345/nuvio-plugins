@@ -4,6 +4,7 @@
 // se do pluginu dostane dalším sestavením. Platforma a needle se nahradí verzemi pro Nuvio.
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +19,10 @@ const engineVersion = (server.match(/const VERSION = '([^']+)'/) || [])[1] || 'd
 let commit = 'unknown';
 try { commit = execFileSync('git', ['-C', engineDir, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(); } catch (e) { /* bez gitu */ }
 const pluginVersion = (fs.readFileSync(path.join(here, 'src', 'plugin.js'), 'utf8').match(/const VERSION = '([^']+)'/) || [])[1];
+// otisk parseru (lib/engine.js + matcher.js) – test/webshare-sync.test.js podle něj pozná plugin sestavený ze starého jádra
+const parserHash = crypto.createHash('sha1')
+    .update(fs.readFileSync(engineFile)).update(fs.readFileSync(path.join(engineDir, 'matcher.js')))
+    .digest('hex').slice(0, 12);
 
 const alias = {
     name: 'webshare-alias',
@@ -43,8 +48,8 @@ await build({
     plugins: [alias],
     banner: { js: `// Webshare ${pluginVersion} – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.\n` +
         `// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu ` +
-        `github.com/david325345/webshare-stremio-docker ${engineVersion} (${commit}).` },
+        `github.com/david325345/webshare-stremio-docker ${engineVersion} (${commit}, parser ${parserHash}).` },
     logLevel: 'warning'
 });
 const size = fs.statSync(path.join(here, 'webshare.js')).size;
-console.log(`webshare/webshare.js: ${(size / 1024).toFixed(0)} kB (plugin ${pluginVersion}, jádro ${engineVersion} ${commit})`);
+console.log(`webshare/webshare.js: ${(size / 1024).toFixed(0)} kB (plugin ${pluginVersion}, jádro ${engineVersion} ${commit}, parser ${parserHash})`);

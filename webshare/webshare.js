@@ -1,5 +1,5 @@
-// Webshare 1.0.0 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.11.0 (63bee87).
+// Webshare 1.0.1 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.11.1 (6643cdd, parser 68c9ce5f6512).
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -139,9 +139,9 @@ var require_needle = __commonJS({
   }
 });
 
-// ../../webshare-stremio-docker/matcher.js
+// ../webshare-stremio-docker/matcher.js
 var require_matcher = __commonJS({
-  "../../webshare-stremio-docker/matcher.js"(exports2, module2) {
+  "../webshare-stremio-docker/matcher.js"(exports2, module2) {
     init_timers();
     var STOPWORDS = /* @__PURE__ */ new Set(["the", "a", "an", "of", "and", "und", "le", "la", "les", "der", "die", "das"]);
     var FOLD = {
@@ -1143,9 +1143,9 @@ var require_platform = __commonJS({
   }
 });
 
-// ../../webshare-stremio-docker/lib/engine.js
+// ../webshare-stremio-docker/lib/engine.js
 var require_engine = __commonJS({
-  "../../webshare-stremio-docker/lib/engine.js"(exports2, module2) {
+  "../webshare-stremio-docker/lib/engine.js"(exports2, module2) {
     "use strict";
     init_timers();
     var needle = require_needle();
@@ -2377,7 +2377,8 @@ ${cfg.password}`);
           for (const it of live()) {
             const ys = M.fileYears(it.f.name), len = lenOf(it);
             if (!ys.length) {
-              if (!ref2 || !len || !near(len, ref2, 0.02)) {
+              const sameAsOurs = len && ours.length >= 2 && ours.some((l) => near(len, l, 0.01));
+              if (!sameAsOurs && (!ref2 || !len || !near(len, ref2, 0.02))) {
                 bad.set(it.f.ident, `bez roku (starší film stejného jména${len ? `, ${Math.round(len / 60)} min` : ""})`);
               }
             } else if (!ys.includes(plan.year) && ref2 && len) {
@@ -2456,7 +2457,8 @@ ${cfg.password}`);
       if (!older.size) return [];
       const ep = new RegExp(`\\bs0*${plan.season} ?e0*${plan.episode}\\b|\\b0*${plan.season}x0*${plan.episode}\\b`);
       const sameEp = (it) => ep.test(M.normalize(it.f.name));
-      const ours = items.filter((it) => lenOf(it) && M.fileYears(it.f.name).includes(plan.year)).map(lenOf);
+      const ownOk = (it) => it.why === OWN_NAME && plan.epRuntime && near(lenOf(it), plan.epRuntime * 60, 0.15);
+      const ours = items.filter((it) => lenOf(it) && (M.fileYears(it.f.name).includes(plan.year) || ownOk(it))).map(lenOf);
       if (!ours.length) return [];
       const plain = { ...plan, sameName: null };
       const cand = rejected.filter((it) => /^bez roku \(starší seriál/.test(it.why || "") && lenOf(it));
@@ -3213,8 +3215,8 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
 // webshare/src/plugin.js
 init_timers();
 var E = require_engine();
-var VERSION = "1.0.0";
-var ENGINE_VERSION = true ? "8.11.0" : "dev";
+var VERSION = "1.0.1";
+var ENGINE_VERSION = true ? "8.11.1" : "dev";
 var ASSETS = "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public";
 var ARCHIVE_URL = "https://webshare-stremio.freeddns.org/api/archive";
 function onSettings() {
