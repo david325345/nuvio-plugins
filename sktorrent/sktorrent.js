@@ -1,5 +1,5 @@
-// SKTorrent 1.0.0 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/sktorrent/src + kód addonu github.com/david325345/sktorrent-realdebrid-docker 3.10.0 (70c2a00).
+// SKTorrent 1.0.1 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/sktorrent/src + kód addonu github.com/david325345/sktorrent-realdebrid-docker 3.10.1 (b32345b).
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -747,9 +747,9 @@ var require_crypto = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/util.js
+// ../sktorrent-realdebrid-docker/lib/util.js
 var require_util = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/util.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/util.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var crypto2 = require_crypto();
@@ -804,9 +804,9 @@ var require_util = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/matching.js
+// ../sktorrent-realdebrid-docker/lib/matching.js
 var require_matching = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/matching.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/matching.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var { removeDiacritics, isVideo, isSample, basename, normalizeQuery } = require_util();
@@ -853,6 +853,8 @@ var require_matching = __commonJS({
       return contiguous ? `S${pad(a[0])}-S${pad(a[a.length - 1])}` : a.map((v) => `S${pad(v)}`).join(",");
     }
     var BARE_EP = /(?<![a-z0-9])E\d{2,3}(?![a-z0-9])/i;
+    var BARE_EP_G = /(?<![a-z0-9])E(\d{2,3})(?![a-z0-9])/gi;
+    var bareEpisodes = (name) => /E\d{2}\s*-\s*E?\d{2}/i.test(String(name || "")) ? [] : [...String(name || "").matchAll(BARE_EP_G)].map((m) => parseInt(m[1], 10));
     var ABS_RANGE = /(?<![a-z\d.])(\d{1,3})\s*[-–]\s*(\d{2,3})(?![\d.]|\s*\.?\s*(?:seri|season|sezon|rada|film|movie|dil|diel|cast|epizod|p\b))/gi;
     function absoluteRange(name) {
       const n = removeDiacritics(String(name || ""));
@@ -877,9 +879,14 @@ var require_matching = __commonJS({
       };
       const matchesDil = (name) => {
         const n = removeDiacritics(name);
-        return dilRe(episode).test(n) && dilSeasonOk(name);
+        if (!dilRe(episode).test(n) || !dilSeasonOk(name)) return false;
+        const b = bareEpisodes(name);
+        return !b.length || b.includes(episode);
       };
-      const matchesExactEpisode = (name) => exactRe.test(name) && !exactRangeRe.test(name) || matchesDil(name);
+      const matchesBare = (name) => bareEpisodes(name).includes(episode) && dilSeasonOk(name);
+      const matchesSE = (name) => exactRe.test(name) && !exactRangeRe.test(name);
+      const matchesExactEpisode = (name) => matchesSE(name) || matchesDil(name) || matchesBare(name);
+      const bareOnly = (name) => !matchesSE(name) && !matchesDil(name) && matchesBare(name);
       const hasAnyEpisode = (name) => {
         if (new RegExp(`(?<![a-z0-9])S0*${season}\\s?E\\d{1,3}`, "i").test(name)) return true;
         if (/(?<![\dx])\d{1,2}x\d{2,3}(?![\dp])/i.test(name)) return true;
@@ -968,7 +975,7 @@ var require_matching = __commonJS({
         if (/s\d{1,2}\s*-\s*s?\d{1,2}/i.test(name) || /\d+\s*\.?\s*[-–]\s*\d+\s*\.?\s*(seri|season|sezon)/.test(norm)) return false;
         return new RegExp(`(?<![A-Z0-9])${seTag}(?!\\d)`).test(name.toUpperCase()) || new RegExp(`(^|\\W)${sn}\\s*\\.?\\s*(seri|sezon)`).test(norm) || new RegExp(`(seri[ea]|season|sezona)[\\s._]*${sn}(\\W|$)`).test(norm);
       };
-      return { seTag, epTag, matchesExactEpisode, hasAnyEpisode, isBatchSeason, isSeasonPack, isNoSeasonCandidate, rejectReason };
+      return { seTag, epTag, matchesExactEpisode, bareOnly, hasAnyEpisode, isBatchSeason, isSeasonPack, isNoSeasonCandidate, rejectReason };
     }
     function titleWordsOf(name) {
       const clean = removeDiacritics(name).replace(/['’]/g, "").replace(/S\d{2}E?\d{0,2}/gi, "").replace(/\d+x\d+/g, "").trim();
@@ -1182,18 +1189,21 @@ var require_matching = __commonJS({
       const ours = [...new Set((names || []).map(latinName).filter(Boolean).map(normTitle).filter((n) => n.length >= 3))];
       const keepYears = new Set(ours.flatMap((n) => n.match(/\b(19|20)\d{2}\b/g) || []));
       const keepParts = partNumbers(names);
-      return (tname, cat) => {
-        if (!ours.length) return false;
+      const foreignParts = (tname, cat) => {
+        if (!ours.length) return [];
         const seg = titleSegment(tname, cat, keepYears, keepParts);
         const parts = seg.split(/(?<!\d)\/|\/(?!\d)|\|/).map((x) => x.trim()).filter((x) => /[a-z]{2}/i.test(removeDiacritics(x)));
-        if (parts.length < 2) return false;
+        if (parts.length < 2) return [];
         const mine = parts.filter((p) => strict(p, ""));
-        if (!mine.length || mine.length === parts.length) return false;
-        return parts.filter((p) => !mine.includes(p)).some((p) => {
-          const n = ` ${normTitle(p)} `;
-          return !ours.some((o) => n.includes(` ${o} `));
+        if (!mine.length || mine.length === parts.length) return [];
+        return parts.filter((p) => !mine.includes(p)).map((p) => normTitle(p).trim()).filter((n) => {
+          const w = ` ${n} `;
+          return !ours.some((o) => w.includes(` ${o} `));
         });
       };
+      const check = (tname, cat) => foreignParts(tname, cat).length > 0;
+      check.parts = foreignParts;
+      return check;
     }
     function makeYearMatch(year) {
       const y = parseInt(year);
@@ -1399,13 +1409,13 @@ var require_matching = __commonJS({
       if (sel.season !== void 0) return `e${sel.season}-${sel.episode}`;
       return "main";
     }
-    module2.exports = { makeNoSeasonYearCheck, makeForeignPartCheck, partNumbers, isMakingOf, lastKnownSeasonYear, dashShortNames, makeForeignTitleCheck, makeYearMatch, seasonSet, makeSeriesYearCheck, makeSeasonYearCheck, absoluteRange, episodeFilters, makeTitleMatcher, makeStrictTitleMatcher, normTitle, titleSegment, latinName, buildSearchNames, filterYear, isMoviePack, pickEpisodeFile, pickMovieFile, pickBySel, selKey, seasonMarkers, pad };
+    module2.exports = { bareEpisodes, makeNoSeasonYearCheck, makeForeignPartCheck, partNumbers, isMakingOf, lastKnownSeasonYear, dashShortNames, makeForeignTitleCheck, makeYearMatch, seasonSet, makeSeriesYearCheck, makeSeasonYearCheck, absoluteRange, episodeFilters, makeTitleMatcher, makeStrictTitleMatcher, normTitle, titleSegment, latinName, buildSearchNames, filterYear, isMoviePack, pickEpisodeFile, pickMovieFile, pickBySel, selKey, seasonMarkers, pad };
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/meta.js
+// ../sktorrent-realdebrid-docker/lib/meta.js
 var require_meta = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/meta.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/meta.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var axios = require_axios();
@@ -1510,9 +1520,9 @@ var require_meta = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/csfd.js
+// ../sktorrent-realdebrid-docker/lib/csfd.js
 var require_csfd = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/csfd.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/csfd.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var axios = require_axios();
@@ -1641,9 +1651,9 @@ var require_https = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/skt.js
+// ../sktorrent-realdebrid-docker/lib/skt.js
 var require_skt = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/skt.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/skt.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var https = require_https();
@@ -1728,6 +1738,47 @@ var require_skt = __commonJS({
       const ms = Number.isFinite(n) ? n * 1e3 : Date.parse(String(v)) - Date.now();
       return Math.min(12e4, Math.max(1e3, Number.isFinite(ms) ? ms : 1e4));
     }
+    var envInt = (k, d) => {
+      const v = parseInt(_process.env[k], 10);
+      return Number.isFinite(v) ? v : d;
+    };
+    var RATE_PER_MIN = Math.max(1, envInt("SKT_RATE_PER_MIN", 15));
+    var RATE_WAIT_MS = Math.max(0, envInt("SKT_RATE_WAIT_MS", 3e3));
+    var RATE_WINDOW_MS = 6e4;
+    var RATE_RESERVE = 3;
+    var RATE_SLOW_MS = 6e4;
+    var rateLog = [];
+    var rateSlowUntil = 0;
+    var rateCap = () => Date.now() < rateSlowUntil ? Math.max(1, Math.floor(RATE_PER_MIN / 2)) : RATE_PER_MIN;
+    function ratePrune(now) {
+      while (rateLog.length && rateLog[0] <= now - RATE_WINDOW_MS) rateLog.shift();
+    }
+    async function rateSlot(low) {
+      const t0 = Date.now();
+      for (; ; ) {
+        const now = Date.now();
+        ratePrune(now);
+        const cap = Math.max(low ? 0 : 1, rateCap() - (low ? RATE_RESERVE : 0));
+        if (rateLog.length < cap) {
+          rateLog.push(now);
+          return { wait: now - t0, ts: now };
+        }
+        const freeAt = cap > 0 ? rateLog[rateLog.length - cap] + RATE_WINDOW_MS : Infinity;
+        if (freeAt - t0 > RATE_WAIT_MS) return { wait: now - t0, ts: 0 };
+        await new Promise((r) => _setTimeout(r, Math.max(5, freeAt - now + 5)));
+      }
+    }
+    function rateUnslot(ts) {
+      const i = rateLog.indexOf(ts);
+      if (i >= 0) rateLog.splice(i, 1);
+    }
+    function rateNote() {
+      ratePrune(Date.now());
+      rateLog.push(Date.now());
+    }
+    function rateSlowAfter(pauseMs) {
+      rateSlowUntil = Math.max(rateSlowUntil, Date.now() + pauseMs + RATE_SLOW_MS);
+    }
     var torrentCache = createCache({ ttl: 12 * 3600 * 1e3, max: 2e4 });
     var pausedUntil = /* @__PURE__ */ new Map();
     var pauseReason = /* @__PURE__ */ new Map();
@@ -1785,7 +1836,7 @@ var require_skt = __commonJS({
       for (const m of String(html).matchAll(/[?&](?:amp;)?page=(\d+)/g)) max = Math.max(max, parseInt(m[1]));
       return max;
     }
-    async function searchSKTPage(query, uid, pass, page = 0) {
+    async function searchSKTPage(query, uid, pass, page = 0, opts = {}) {
       query = normalizeQuery(query);
       const empty = { items: [], hasMore: false };
       if (!query) return empty;
@@ -1805,22 +1856,36 @@ var require_skt = __commonJS({
         console.log(`[SKT] ⚡ Jistič — přeskakuji ${label}`);
         return { ...empty, err: "jistič", skipped: true };
       }
-      return once(`skt:${ck}`, () => fetchPage(query, uid, pass, page, ck, label, acct));
+      return once(`skt:${ck}`, () => fetchPage(query, uid, pass, page, ck, label, acct, false, !!opts.low));
     }
-    async function fetchPage(query, uid, pass, page, ck, label, acct, retry = false) {
+    async function fetchPage(query, uid, pass, page, ck, label, acct, retry = false, low = false) {
       const empty = { items: [], hasMore: false };
       if (retry && isPaused(uid, pass)) return { ...empty, err: pauseKind(uid, pass), skipped: true };
       {
+        const slot = await rateSlot(low);
+        const rlw = slot.wait >= 50 ? { rl: slot.wait } : {};
+        if (!slot.ts) {
+          console.log(`[SKT] 🚦 Limit ${rateCap()} požadavků/min — přeskakuji ${label}${low ? " (méně důležitý)" : ""}`);
+          return { ...empty, err: "limit addonu", skipped: true, ...rlw };
+        }
+        if (isPaused(uid, pass)) {
+          rateUnslot(slot.ts);
+          return { ...empty, err: pauseKind(uid, pass), skipped: true, ...rlw };
+        }
         const waitedProbe = BREAKER.probing;
         const g0 = Date.now();
         const gate = await breakerGate();
         const probeWait = waitedProbe ? Date.now() - g0 : 0;
-        const pw = probeWait >= 50 ? { probeWait } : {};
+        const pw = { ...probeWait >= 50 ? { probeWait } : {}, ...rlw };
         if (!gate) {
+          rateUnslot(slot.ts);
           console.log(`[SKT] ⚡ Jistič — přeskakuji ${label}${probeWait ? ` (po ${probeWait} ms čekání na zkušební dotaz)` : ""}`);
           return { ...empty, err: "jistič", skipped: true, ...pw };
         }
-        if (waitedProbe && isPaused(uid, pass)) return { ...empty, err: pauseKind(uid, pass), skipped: true, ...pw };
+        if (waitedProbe && isPaused(uid, pass)) {
+          rateUnslot(slot.ts);
+          return { ...empty, err: pauseKind(uid, pass), skipped: true, ...pw };
+        }
         console.log(`[SKT] 🔎 ${label}${BREAKER.probing ? " (zkušební dotaz)" : ""}`);
         const ctrl = new AbortController();
         inflight.add(ctrl);
@@ -1852,6 +1917,7 @@ var require_skt = __commonJS({
             console.error(`[SKT] ⛔ ${err} — pauza ${Math.round(pauseMs / 1e3)} s (${acct === "anon" ? "anonymní" : "účet"})`);
             pausedUntil.set(acct, Date.now() + pauseMs);
             pauseReason.set(acct, err === "403" ? "pauza 403" : "pauza 429");
+            if (err === "http 429") rateSlowAfter(pauseMs);
             if (BREAKER.probing) breakerOk();
           } else if (isOutage(err)) {
             console.error(`[SKT] ❌ ${label}: ${err} po ${ms} ms (${e.message})`);
@@ -1862,7 +1928,7 @@ var require_skt = __commonJS({
               console.error(`[SKT] ⚠️ ${label}: ${err} po ${ms} ms (${msg}) — zkusím znovu za 1 s`);
               inflight.delete(ctrl);
               await new Promise((r) => _setTimeout(r, 1e3));
-              const again = await fetchPage(query, uid, pass, page, ck, label, acct, true);
+              const again = await fetchPage(query, uid, pass, page, ck, label, acct, true, low);
               return { ...again, firstErr: err, ...again.err ? {} : { retried: true } };
             }
             console.error(`[SKT] ⚠️ ${label}: ${err} po ${ms} ms (${msg}) — ani napodruhé`);
@@ -1886,7 +1952,19 @@ var require_skt = __commonJS({
       if (c !== void 0) return c.csfd;
       if (isPaused(uid, pass) || breakerOpen()) return void 0;
       return once(`sktdetail:${hash}`, async () => {
-        if (!await breakerGate()) return void 0;
+        const slot = await rateSlot(true);
+        if (!slot.ts) {
+          console.log(`[SKT] 🚦 Limit ${rateCap()} požadavků/min — detail ${hash.slice(0, 8)} přeskočen`);
+          return void 0;
+        }
+        if (isPaused(uid, pass)) {
+          rateUnslot(slot.ts);
+          return void 0;
+        }
+        if (!await breakerGate()) {
+          rateUnslot(slot.ts);
+          return void 0;
+        }
         const ctrl = new AbortController();
         inflight.add(ctrl);
         const t0 = Date.now();
@@ -1908,8 +1986,10 @@ var require_skt = __commonJS({
           if (ctrl.signal.aborted && ctrl.signal.reason === "jistič") return void 0;
           const err = errKind(e);
           if (err === "403" || err === "http 429") {
-            pausedUntil.set(accountKey(uid, pass), Date.now() + (err === "403" ? 6e4 : retryAfterMs(e)));
+            const pauseMs = err === "403" ? 6e4 : retryAfterMs(e);
+            pausedUntil.set(accountKey(uid, pass), Date.now() + pauseMs);
             pauseReason.set(accountKey(uid, pass), err === "403" ? "pauza 403" : "pauza 429");
+            if (err === "http 429") rateSlowAfter(pauseMs);
             if (BREAKER.probing) breakerOk();
           } else if (isOutage(err)) breakerFail();
           else if (BREAKER.probing) breakerOk();
@@ -1922,6 +2002,10 @@ var require_skt = __commonJS({
     }
     function hasDetail(hash) {
       return detailCache.get(String(hash || "").toLowerCase()) !== void 0;
+    }
+    function cachedCsfd(hash) {
+      const c = detailCache.get(String(hash || "").toLowerCase());
+      return c === void 0 ? void 0 : c.csfd;
     }
     var fold = (s) => removeDiacritics(String(s || "")).toLowerCase();
     function searchedText(t) {
@@ -1944,6 +2028,11 @@ var require_skt = __commonJS({
       pauseReason.clear();
       queryCache.map.clear();
       detailCache.map.clear();
+      rateLog.length = 0;
+      rateSlowUntil = 0;
+    }
+    function _rate() {
+      return { log: rateLog, cap: rateCap(), perMin: RATE_PER_MIN, slowUntil: rateSlowUntil };
     }
     function _breaker() {
       return BREAKER;
@@ -1955,6 +2044,7 @@ var require_skt = __commonJS({
       return torrentCache.get(hash);
     }
     async function sktLogin2(username, password) {
+      rateNote();
       const r = await http.post(
         `${BASE_URL}/torrent/login.php`,
         `uid=${encodeURIComponent(username)}&pwd=${encodeURIComponent(password)}`,
@@ -1974,16 +2064,16 @@ var require_skt = __commonJS({
       }
       return uid && pass && uid !== "deleted" && pass !== "deleted" ? { uid, pass } : null;
     }
-    module2.exports = { BASE_URL, searchSKT, searchSKTPage, normalizeQuery, isPaused, pauseKind, breakerOpen, getCachedTorrent, sktLogin: sktLogin2, getTorrentCsfd, csfdFromDetail, hasDetail, filterLikeSKT, _resetBreaker, _breaker, HARD_LIMIT_MS };
+    module2.exports = { BASE_URL, searchSKT, searchSKTPage, normalizeQuery, isPaused, pauseKind, breakerOpen, getCachedTorrent, sktLogin: sktLogin2, getTorrentCsfd, csfdFromDetail, hasDetail, cachedCsfd, filterLikeSKT, _resetBreaker, _breaker, _rate, HARD_LIMIT_MS };
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/search.js
+// ../sktorrent-realdebrid-docker/lib/search.js
 var require_search = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/search.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/search.js"(exports2, module2) {
     init_timers();
     init_node_globals();
-    var { searchSKTPage, isPaused, pauseKind, breakerOpen, getTorrentCsfd, hasDetail, filterLikeSKT } = require_skt();
+    var { searchSKTPage, isPaused, pauseKind, breakerOpen, getTorrentCsfd, hasDetail, cachedCsfd, filterLikeSKT } = require_skt();
     var { episodeFilters, makeStrictTitleMatcher, makeSeriesYearCheck, dashShortNames, makeSeasonYearCheck, makeNoSeasonYearCheck, makeForeignPartCheck, lastKnownSeasonYear, buildSearchNames, filterYear, isMoviePack, latinName, normTitle, titleSegment, partNumbers, isMakingOf } = require_matching();
     var { delay } = require_util();
     var SEARCH_BUDGET_MS = +_process.env.SKT_SEARCH_BUDGET_MS || 25e3;
@@ -2061,7 +2151,7 @@ var require_search = __commonJS({
         release();
       }
     }
-    async function findTorrentsInner({ type, season, episode, titles, sktUid, sktPass }, started, queuedMs) {
+    async function findTorrentsInner({ type, season, episode, titles, sktUid, sktPass, background }, started, queuedMs) {
       const overBudget = () => timeLeft(started) <= 0;
       let failedInRow = 0;
       const sktFailing = () => failedInRow >= 2;
@@ -2074,11 +2164,12 @@ var require_search = __commonJS({
         if (prev && prev.ok && !ok) return;
         audit.set(t.hash, { t, ok, reason });
       };
-      const page = async (q, p = 0) => {
+      const page = async (q, p = 0, low = false) => {
         const t0 = Date.now();
-        const r = await raceDeadline(searchSKTPage(q, sktUid, sktPass, p), timeLeft(started), { items: [], hasMore: false, err: "limit hledání" });
+        const r = await raceDeadline(searchSKTPage(q, sktUid, sktPass, p, { low: !!(low || p > 0 || background) }), timeLeft(started), { items: [], hasMore: false, err: "limit hledání" });
         const rec = { q, p, n: r.items.length, more: r.hasMore, ms: r.cached ? "cache" : r.ms ?? Date.now() - t0 };
         if (r.wait) rec.wait = r.wait;
+        if (r.rl) rec.rl = r.rl;
         if (r.probeWait) rec.probeWait = r.probeWait;
         if (r.firstErr) rec.retry = r.firstErr;
         if (r.pause) rec.pause = r.pause;
@@ -2129,16 +2220,41 @@ var require_search = __commonJS({
         return c === null ? null : c === ourCsfd ? "match" : "other";
       };
       const foreignPart = makeForeignPartCheck(allNames, strictRaw);
-      const vetoed = (name, cat) => csfdState(name) === "other" && (csfdOnly || foreignPart(name, cat));
+      const partCsfd = /* @__PURE__ */ new Map();
+      const learnPart = (t, c) => {
+        if (c === null || c === void 0) return;
+        for (const p of foreignPart.parts(t.name, t.cat)) {
+          if (!partCsfd.has(p)) partCsfd.set(p, /* @__PURE__ */ new Set());
+          partCsfd.get(p).add(c);
+        }
+      };
+      const partVeto = (name, cat) => {
+        if (!partCsfd.size) return null;
+        for (const p of foreignPart.parts(name, cat)) {
+          const ids = partCsfd.get(p);
+          if (ids && !ids.has(ourCsfd)) return { id: [...ids][0], part: p };
+        }
+        return null;
+      };
+      const vetoed = (name, cat) => {
+        const st2 = csfdState(name);
+        if (st2 === "other") return csfdOnly || foreignPart(name, cat);
+        return st2 !== "match" && !!partVeto(name, cat);
+      };
       const strict = (name, cat, opts) => {
         const st2 = csfdState(name);
         if (st2 === "match") return true;
         if (vetoed(name, cat)) return false;
         return strictRaw(name, cat, opts);
       };
-      const nameReason = (t) => vetoed(t.name, t.cat) ? `jiné ČSFD (${csfdByName.get(t.name)})` : "název nesedí";
+      const nameReason = (t) => {
+        if (!vetoed(t.name, t.cat)) return "název nesedí";
+        if (csfdState(t.name) === "other") return `jiné ČSFD (${csfdByName.get(t.name)})`;
+        const pv = partVeto(t.name, t.cat);
+        return `jiné ČSFD (${pv.id}, podle „${pv.part}“)`;
+      };
       const wouldPass = (t) => isSeries ? f.matchesExactEpisode(t.name) || f.isBatchSeason(t.name) || f.isNoSeasonCandidate(t.name) : filterYear([t], movieYear).length > 0;
-      let detailsLeft = csfdOnly ? MAX_DETAILS : MAX_RESCUE, vetoLeft = MAX_VETO, dActive = 0;
+      let detailsLeft = csfdOnly ? MAX_DETAILS : MAX_RESCUE, vetoLeft = MAX_VETO, dActive = 0, detailsSent = 0;
       const dWait = [];
       const dAcquire = () => dActive < DETAIL_CONCURRENCY ? (dActive++, Promise.resolve()) : new Promise((r) => dWait.push(r));
       const dRelease = () => {
@@ -2151,25 +2267,46 @@ var require_search = __commonJS({
         const cand = [];
         for (const t of items) {
           if (csfdOf.has(t.hash) || t.cat && !allowed.test(t.cat)) continue;
+          const c = cachedCsfd(t.hash);
+          if (c !== void 0) {
+            csfdOf.set(t.hash, c);
+            csfdByName.set(t.name, c);
+            learnPart(t, c);
+          }
+        }
+        for (const t of items) {
+          if (csfdOf.has(t.hash) || t.cat && !allowed.test(t.cat)) continue;
           const pass = strictRaw(t.name, t.cat);
           const kind = csfdOnly ? "csfd" : !pass ? startsWithOurName(t) ? "rescue" : null : wouldPass(t) && foreignPart(t.name, t.cat) ? "veto" : null;
           if (kind) cand.push({ t, pass, kind });
         }
         cand.sort((a, b) => (b.pass ? 1 : 0) - (a.pass ? 1 : 0));
+        const seenParts = /* @__PURE__ */ new Set(), dup = [];
+        const order2 = cand.filter((c) => {
+          if (c.kind !== "veto") return true;
+          const ps = foreignPart.parts(c.t.name, c.t.cat);
+          if (ps.some((p) => !seenParts.has(p))) {
+            ps.forEach((p) => seenParts.add(p));
+            return true;
+          }
+          dup.push(c);
+          return false;
+        }).concat(dup);
         const offline = breakerOpen() || isPaused(sktUid, sktPass);
         const jobs = [];
-        for (const { t, kind } of cand) {
+        for (const { t, kind } of order2) {
           if (csfdOf.has(t.hash)) continue;
           if (stop()) break;
           if (!hasDetail(t.hash)) {
             if (offline) continue;
             if (kind === "veto") {
-              if (vetoLeft <= 0) continue;
+              if (partVeto(t.name, t.cat) || vetoLeft <= 0) continue;
               vetoLeft--;
             } else {
               if (detailsLeft <= 0) continue;
               detailsLeft--;
             }
+            detailsSent++;
           }
           csfdOf.set(t.hash, void 0);
           jobs.push(dAcquire().then(async () => {
@@ -2178,6 +2315,7 @@ var require_search = __commonJS({
             else {
               csfdOf.set(t.hash, c);
               csfdByName.set(t.name, c);
+              learnPart(t, c);
             }
           }).finally(dRelease));
         }
@@ -2197,6 +2335,7 @@ var require_search = __commonJS({
         seenNorm.add(k);
         names.push(n);
       }
+      const mainNames = new Set(names.slice(0, 2));
       const matchesMovie = (t) => !isMakingOf(t.name, allNames) && (strict(t.name, t.cat) || isMoviePack(t.name) && strictBase(t.name, t.cat));
       function judgeMovie(q, p, r) {
         const byYear = r.items.filter((t) => csfdState(t.name) === "match" || filterYear([t], movieYear).length);
@@ -2213,27 +2352,29 @@ var require_search = __commonJS({
       }
       async function movieQuery(name, q, maxPages) {
         for (let p = 0; p < maxPages && (p === 0 ? canStartRound() : !stop()); p++) {
-          const r = await page(q, p);
+          const r = await page(q, p, true);
           judgeMovie(q, p, r);
           if (torrents.length || !r.hasMore) break;
           await delay(300);
         }
       }
-      if (!isSeries) {
-        if (movieYear && names.length && canStartRound()) {
-          const qs = names.slice(0, 3).map((n) => `${n} ${movieYear}`);
-          const rs = await Promise.all(qs.map((q) => page(q, 0)));
-          rs.forEach((r, i) => judgeMovie(qs[i], 0, r));
+      if (!isSeries && names.length && canStartRound()) {
+        const qs = names.slice(0, 3);
+        const rs = await Promise.all(qs.map((q, i) => page(q, 0, i >= 2)));
+        if (movieYear) {
+          const ys = await Promise.all(qs.map((n, i) => {
+            const q = `${n} ${movieYear}`;
+            return rs[i].hasMore && canStartRound() ? page(q, 0, i >= 2) : localPage(q, rs[i], movieYear);
+          }));
+          ys.forEach((r, i) => judgeMovie(`${qs[i]} ${movieYear}`, 0, r));
           for (const name of names.slice(3)) {
             if (torrents.length || !canStartRound()) break;
             await movieQuery(name, `${name} ${movieYear}`, 1);
           }
         }
-        if (!torrents.length && names.length && canStartRound()) {
+        if (!torrents.length) {
           const recent = movieYear && parseInt(movieYear) >= (/* @__PURE__ */ new Date()).getFullYear() - 1;
           const maxPages = recent ? 1 : MAX_PAGES;
-          const qs = names.slice(0, 3);
-          const rs = await Promise.all(qs.map((q) => page(q, 0)));
           rs.forEach((r, i) => judgeMovie(qs[i], 0, r));
           const more = rs.findIndex((r) => r.hasMore);
           if (!torrents.length && more >= 0) {
@@ -2260,12 +2401,18 @@ var require_search = __commonJS({
       const otherYear = isSeries ? makeNoSeasonYearCheck(seasonYear, titles.year, allNames) : () => null;
       const beforeSeason = (n) => beforeSeason0(n) || otherYear(n);
       const noSeasonOk = (t) => f.isNoSeasonCandidate(t.name) && strict(t.name, t.cat, { whole: true }) && !beforeSeason(t.name);
+      const bareYearCheck = isSeries ? makeNoSeasonYearCheck(seasonYear || titles.year, titles.year, allNames) : () => null;
+      const bareYear = (n) => isSeries && f.bareOnly(n) ? bareYearCheck(n) : null;
+      const isEpisode = (n) => f.matchesExactEpisode(n) && !bareYear(n);
       const judgeSeries = (items, matchesTitle, withNoSeason) => items.forEach((t) => {
         if (!strict(t.name, t.cat)) return mark(t, false, nameReason(t));
         const old = csfdState(t.name) === "match" ? null : tooOld(t.name);
         if (old) return mark(t, false, old);
         titleSeen++;
-        if (f.matchesExactEpisode(t.name)) return mark(t, true, "epizoda");
+        if (f.matchesExactEpisode(t.name)) {
+          const by = bareYear(t.name);
+          return by ? mark(t, false, by.replace("bez sezóny", "holý díl")) : mark(t, true, "epizoda");
+        }
         if (f.isBatchSeason(t.name)) return mark(t, true, "balík");
         if (withNoSeason && f.isNoSeasonCandidate(t.name)) {
           if (!strict(t.name, t.cat, { whole: true })) return mark(t, false, "bez sezóny, název jen částečně");
@@ -2283,13 +2430,14 @@ var require_search = __commonJS({
         };
         const take = (r) => {
           const found = fit(r.items);
-          addEps(found.filter((t) => f.matchesExactEpisode(t.name)));
+          addEps(found.filter((t) => isEpisode(t.name)));
           addBatch(found.filter((t) => f.isBatchSeason(t.name)));
         };
+        const low = !mainNames.has(name);
         const haveSeasonPack = () => batchTorrents.some((t) => f.isSeasonPack(t.name));
         const qSeri = `${name} seri`;
-        const bare = await page(name, 0);
-        const [ep, se, seri] = bare.hasMore && canStartRound() ? await Promise.all([page(`${name} ${f.epTag}`), page(`${name} ${f.seTag}`), page(qSeri, 0)]) : [localPage(`${name} ${f.epTag}`, bare, f.epTag), localPage(`${name} ${f.seTag}`, bare, f.seTag), localPage(qSeri, bare, "seri")];
+        const bare = await page(name, 0, low);
+        const [ep, se, seri] = bare.hasMore && canStartRound() ? await Promise.all([page(`${name} ${f.epTag}`, 0, low), page(`${name} ${f.seTag}`, 0, low), page(qSeri, 0, low)]) : [localPage(`${name} ${f.epTag}`, bare, f.epTag), localPage(`${name} ${f.seTag}`, bare, f.seTag), localPage(qSeri, bare, "seri")];
         for (const r of [ep, se, bare, seri]) take(r);
         judgeSeries(ep.items, matchesTitle, false);
         judgeSeries(se.items, matchesTitle, false);
@@ -2326,6 +2474,16 @@ var require_search = __commonJS({
           if (torrents.length || batchTorrents.length || noSeasonTorrents.length || titleSeen || stop()) break;
         }
       }
+      if (partCsfd.size) {
+        const late = (list) => list.filter((t) => {
+          if (!vetoed(t.name, t.cat)) return true;
+          audit.set(t.hash, { t, ok: false, reason: nameReason(t) });
+          return false;
+        });
+        torrents = late(torrents);
+        batchTorrents = late(batchTorrents);
+        noSeasonTorrents = late(noSeasonTorrents);
+      }
       for (const t of noSeasonTorrents) addBatch([t]);
       batchTorrents = batchTorrents.filter((b) => !torrents.some((t) => t.hash === b.hash));
       if (!queries.length && (breakerOpen() || isPaused(sktUid, sktPass))) queries.push({ q: "", p: 0, n: 0, ms: 0, err: breakerOpen() ? "jistič" : pauseKind(sktUid, sktPass) });
@@ -2341,6 +2499,7 @@ var require_search = __commonJS({
         ms: Date.now() - started,
         ...sktDown ? { sktDown: true } : {},
         ...queuedMs >= 100 ? { queuedMs } : {},
+        ...detailsSent ? { details: detailsSent } : {},
         ...ourCsfd ? { csfdOf: new Map([...csfdOf].filter(([, v]) => v !== void 0)) } : {},
         audit: { queries, torrents: [...audit.values()] }
       };
@@ -2349,9 +2508,9 @@ var require_search = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/rd.js
+// ../sktorrent-realdebrid-docker/lib/rd.js
 var require_rd = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/rd.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/rd.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var axios = require_axios();
@@ -2560,9 +2719,9 @@ var require_rd = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/streams.js
+// ../sktorrent-realdebrid-docker/lib/streams.js
 var require_streams = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/streams.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/streams.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var isDead = (t, cached) => Number(t?.seeds) === 0 && cached !== true;
@@ -2608,9 +2767,9 @@ var require_streams = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/tb.js
+// ../sktorrent-realdebrid-docker/lib/tb.js
 var require_tb = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/tb.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/tb.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var axios = require_axios();
@@ -2867,9 +3026,9 @@ var require_tb = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/debrid.js
+// ../sktorrent-realdebrid-docker/lib/debrid.js
 var require_debrid = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/debrid.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/debrid.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var rd = require_rd();
@@ -2908,9 +3067,9 @@ var require_archive = __commonJS({
   }
 });
 
-// ../../sktorrent-realdebrid-docker/lib/handlers.js
+// ../sktorrent-realdebrid-docker/lib/handlers.js
 var require_handlers = __commonJS({
-  "../../sktorrent-realdebrid-docker/lib/handlers.js"(exports2, module2) {
+  "../sktorrent-realdebrid-docker/lib/handlers.js"(exports2, module2) {
     init_timers();
     init_node_globals();
     var { getTitle } = require_meta();
@@ -3094,6 +3253,7 @@ ${providerLine(p, cached)}`, ...link2.play(p.id, hash, {}), behaviorHints: { not
           ms: found.ms,
           ...found.sktDown ? { sktDown: true } : {},
           ...found.queuedMs ? { queuedMs: found.queuedMs } : {},
+          ...found.details ? { details: found.details } : {},
           providers: provs.map((p) => p.id),
           logged: !!(cfg.sktUid && cfg.sktPass),
           streams: sentMap ? sentMap.size : 0,
@@ -3238,8 +3398,8 @@ var { activeProviders, rdVerify, tbVerify } = require_debrid();
 var { sktLogin } = require_skt();
 var archive = require_archive();
 var { sha256hex } = require_hash();
-var VERSION = "1.0.0";
-var ADDON_VERSION = true ? "3.10.0" : "dev";
+var VERSION = "1.0.1";
+var ADDON_VERSION = true ? "3.10.1" : "dev";
 var ARCHIVE_URL = true ? "" : "";
 var PUBLIC = "https://raw.githubusercontent.com/david325345/sktorrent-realdebrid-docker/main/public/";
 function onSettings() {
