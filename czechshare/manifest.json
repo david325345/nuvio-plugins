@@ -1,0 +1,28 @@
+{
+  "name": "CzechShare",
+  "version": "1.1.0",
+  "description": "Webshare.cz, Hellspy a Fastshare pro Nuvio na Apple TV – české a slovenské filmy, seriály a anime, CZ/SK dabing a titulky na prvním místě.",
+  "author": "david325345",
+  "scrapers": [
+    {
+      "id": "czechshare",
+      "name": "CzechShare",
+      "description": "Webshare.cz (účet s VIP), Hellspy (zdarma) a Fastshare (účet) – zapni si, co používáš; stejné hledání a parser jako addon CzechShare",
+      "version": "1.1.0",
+      "filename": "czechshare.js",
+      "logo": "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public/logo.png",
+      "supportedTypes": ["movie", "tv"],
+      "resources": ["stream", "catalog", "meta"],
+      "idPrefixes": ["tt", "kitsu:", "anilist:", "csfd:", "webshare-", "hellspy-", "fastshare-"],
+      "catalogs": [
+        { "type": "movie", "id": "webshare_search", "name": "Webshare Hledat", "extra": [{ "name": "search", "isRequired": true }] },
+        { "type": "movie", "id": "hellspy_search", "name": "Hellspy Hledat", "extra": [{ "name": "search", "isRequired": true }] },
+        { "type": "movie", "id": "fastshare_search", "name": "Fastshare Hledat", "extra": [{ "name": "search", "isRequired": true }] }
+      ],
+      "supportedPlatforms": ["tvos"],
+      "contentLanguage": ["cs", "sk"],
+      "enabled": true,
+      "hasSettings": true
+    }
+  ]
+}

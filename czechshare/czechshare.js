@@ -1,5 +1,5 @@
-// Webshare 1.0.2 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.12.0 (5ff1887, parser d68353723c61).
+// CzechShare 1.1.0 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/czechshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.13.0 (f1c8f9e, parser 126ad24148ad).
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -37,9 +37,9 @@ var init_timers = __esm({
   }
 });
 
-// webshare/src/needle.js
+// czechshare/src/needle.js
 var require_needle = __commonJS({
-  "webshare/src/needle.js"(exports2, module2) {
+  "czechshare/src/needle.js"(exports2, module2) {
     "use strict";
     init_timers();
     var ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
@@ -1029,9 +1029,9 @@ var require_hash = __commonJS({
   }
 });
 
-// webshare/src/platform.js
+// czechshare/src/platform.js
 var require_platform = __commonJS({
-  "webshare/src/platform.js"(exports2, module2) {
+  "czechshare/src/platform.js"(exports2, module2) {
     "use strict";
     init_timers();
     var { md5crypt, sha1hex } = require_hash();
@@ -3111,7 +3111,7 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       if (!query) return [];
       const r = await withToken(cfg, (t) => wsSearch(t, query, 100));
       r.files = r.files.filter((f) => !M.isNonVideo(f.name));
-      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const backdrop = `${base}/backdrop.jpg`;
       log(`🔍 hledat "${query}" [${who(cfg)}] → ${r.files.length}`);
       archiveWrite({
         t: (/* @__PURE__ */ new Date()).toISOString(),
@@ -3158,7 +3158,7 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
         seen.add(f.size);
         return true;
       });
-      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const backdrop = `${base}/backdrop.jpg`;
       log(`🔍 hellspy hledat "${query}" [${who(cfg)}] → ${files.length}`);
       archiveWrite({
         t: (/* @__PURE__ */ new Date()).toISOString(),
@@ -3191,7 +3191,7 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       const q = M.detectQuality(f.name);
       const lbl = langLabel(M.detectLang(f.name));
       const subNames = { cze: "CZ", ces: "CZ", slo: "SK", slk: "SK", eng: "EN" };
-      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const backdrop = `${base}/backdrop.jpg`;
       const desc = [
         `📄 ${d.filename || f.name}`,
         "",
@@ -3229,7 +3229,7 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
         seen.add(f.size);
         return true;
       }).slice(0, 100);
-      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const backdrop = `${base}/backdrop.jpg`;
       log(`🔍 fastshare hledat "${query}" [${who(cfg)}] → ${files.length}`);
       archiveWrite({
         t: (/* @__PURE__ */ new Date()).toISOString(),
@@ -3261,7 +3261,7 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       if (!f) return null;
       const q = M.detectQuality(f.name);
       const lbl = langLabel(M.detectLang(f.name));
-      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const backdrop = `${base}/backdrop.jpg`;
       const desc = [
         `📄 ${f.name}`,
         "",
@@ -3283,7 +3283,7 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       const f = r.info;
       const q = M.detectQuality(f.name);
       const lbl = langLabel(M.detectLang(f.name));
-      const backdrop = `${base}/webshare-backdrop.jpg`;
+      const backdrop = `${base}/backdrop.jpg`;
       const desc = [
         `📄 ${f.name}`,
         "",
@@ -3471,31 +3471,34 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
   }
 });
 
-// webshare/src/plugin.js
+// czechshare/src/plugin.js
 init_timers();
 var E = require_engine();
-var VERSION = "1.0.2";
-var ENGINE_VERSION = true ? "8.12.0" : "dev";
+var VERSION = "1.1.0";
+var ENGINE_VERSION = true ? "8.13.0" : "dev";
 var ASSETS = "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public";
 var ARCHIVE_URL = "https://webshare-stremio.freeddns.org/api/archive";
 function onSettings() {
   return [
     {
       type: "info",
-      label: `Webshare ${VERSION}`,
-      description: "Filmy, seriály a anime z Webshare.cz a Hellspy – české a slovenské názvy, CZ/SK dabing a titulky na prvním místě. Webshare potřebuje účet (přehrávání s VIP), Hellspy je zdarma bez účtu. Hledání a parser jsou stejné jako v addonu Webshare."
+      label: `CzechShare ${VERSION}`,
+      description: "Filmy, seriály a anime z Webshare.cz, Hellspy a Fastshare – české a slovenské názvy, CZ/SK dabing a titulky na prvním místě. Zapni si, co používáš: Webshare a Fastshare vyplněním účtu (Webshare přehrává s VIP, Fastshare s neomezeným stahováním nebo kreditem), Hellspy je zdarma bez účtu. Hledání a parser jsou stejné jako v addonu CzechShare."
     },
-    { type: "text", key: "username", label: "Webshare – uživatelské jméno", placeholder: "bez účtu jen Hellspy" },
+    { type: "text", key: "username", label: "Webshare – uživatelské jméno", placeholder: "prázdné = bez Webshare" },
     { type: "text", key: "password", label: "Webshare – heslo", isPassword: true },
     { type: "toggle", key: "hellspy", label: "Hellspy", defaultValue: true },
+    { type: "text", key: "fs_username", label: "Fastshare – uživatelské jméno", placeholder: "prázdné = bez Fastshare" },
+    { type: "text", key: "fs_password", label: "Fastshare – heslo", isPassword: true },
     { type: "toggle", key: "ws_search", label: "Katalog „Webshare Hledat“ ve vyhledávání", defaultValue: true },
     { type: "toggle", key: "hs_search", label: "Katalog „Hellspy Hledat“ ve vyhledávání", defaultValue: true },
+    { type: "toggle", key: "fs_search", label: "Katalog „Fastshare Hledat“ ve vyhledávání", defaultValue: true },
     { type: "text", key: "tmdb_key", label: "Vlastní TMDB API klíč", placeholder: "nepovinné – jinak se použije klíč z Nuvia" },
     { type: "toggle", key: "archive", label: "Pomoct vylepšit hledání (anonymně)", defaultValue: false },
     {
       type: "info",
       label: "Co se při zapnutí odesílá",
-      description: "Po každém hledání se na server addonu Webshare pošle anonymní záznam: co se hledalo (titul, ID, díl) a názvy nalezených souborů s tím, jestli prošly. Bez jména, hesla a jakýchkoli údajů o tobě. Z těchto záznamů se opravuje parser, takže to pomůže vylepšit hledání pro všechny."
+      description: "Po každém hledání se na server addonu CzechShare pošle anonymní záznam: co se hledalo (titul, ID, díl) a názvy nalezených souborů s tím, jestli prošly. Bez jmen, hesel a jakýchkoli údajů o tobě. Z těchto záznamů se opravuje parser, takže to pomůže vylepšit hledání pro všechny."
     }
   ];
 }
@@ -3508,12 +3511,18 @@ function readSettings(raw) {
     cfg.username = text("username");
     cfg.password = String(s.password);
   }
+  if (text("fs_username") && s.fs_password) {
+    cfg.fs_username = text("fs_username");
+    cfg.fs_password = String(s.fs_password);
+  }
   cfg.hellspy = bool("hellspy", true);
   cfg.enable_direct_search = bool("ws_search", true);
   cfg.hellspy_search = bool("hs_search", true);
+  cfg.fastshare_search = bool("fs_search", true);
   if (text("tmdb_key")) cfg.tmdb_api_key = text("tmdb_key");
   return { cfg, archive: bool("archive", false) };
 }
+var anySource = (cfg) => E.hasWs(cfg) || E.hsOn(cfg) || E.hasFs(cfg);
 var archiveOn = false;
 E.hooks.version = `${ENGINE_VERSION}+nuvio-${VERSION}`;
 E.hooks.archiveOn = () => archiveOn;
@@ -3521,7 +3530,7 @@ E.hooks.archive = (rec) => {
   fetch(ARCHIVE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ record: rec }) }).catch(() => {
   });
 };
-var OWN_ID = /^(webshare-|hellspy-)/;
+var OWN_ID = /^(webshare-|hellspy-|fastshare-)/;
 var ANIME_ID = /^(kitsu|anilist):\d+/;
 function addonId(type, season, episode, ctx) {
   const vid = String(ctx && ctx.videoId || "");
@@ -3544,6 +3553,8 @@ function toPluginStream(item, subs) {
     if (subs && subs.length) {
       st2.subtitles = subs.map((x, i) => ({ id: `hs-${f.id}-${i}`, lang: x.lang || "und", url: x.url }));
     }
+  } else if (f.fs) {
+    st2.resolve = { f: String(f.id), n: f.name };
   } else {
     st2.resolve = { w: String(f.ident) };
   }
@@ -3574,12 +3585,17 @@ async function streamsFor(type, id, cfg) {
     const hf = await E.hsFileFromId(id);
     if (!hf) return [];
     items = E.rankFiles(E.expandHellspy([{ f: hf.f, exact: true, info: hf.info }]));
+  } else if (id.startsWith("fastshare-")) {
+    if (!E.hasFs(cfg)) return [];
+    const f = E.fsFileFromId(id);
+    if (!f) return [];
+    items = E.rankFiles([{ f, exact: true, info: { len: f.len } }]);
   } else {
     const res = await E.findFiles(type, id, cfg);
     items = res.items.slice(0, type === "movie" ? 30 : 25);
     const p = res.plan;
-    const nHs = items.filter((it) => it.f.hs).length;
-    console.log(`${type} ${id} ${p ? p.isAnime ? `anime AL${p.anilistId}` : p.source : "bez názvů"}${p ? ` | názvy: ${p.names.map((n) => n.text).join(" / ")}` : ""} | dotazů ${res.queries || 0}, souborů ${res.total || 0}, streamů ${items.length}${nHs ? ` (Hellspy ${nHs})` : ""}${res.cached ? " (cache)" : ` | ${res.ms} ms`}`);
+    const nHs = items.filter((it) => it.f.hs).length, nFs = items.filter((it) => it.f.fs).length;
+    console.log(`${type} ${id} ${p ? p.isAnime ? `anime AL${p.anilistId}` : p.source : "bez názvů"}${p ? ` | názvy: ${p.names.map((n) => n.text).join(" / ")}` : ""} | dotazů ${res.queries || 0}, souborů ${res.total || 0}, streamů ${items.length}${nHs || nFs ? ` (${[nHs && `Hellspy ${nHs}`, nFs && `Fastshare ${nFs}`].filter(Boolean).join(", ")})` : ""}${res.cached ? " (cache)" : ` | ${res.ms} ms`}`);
   }
   const subs = await hellspySubs(items);
   return items.map((it) => toPluginStream(it, it.f.hs ? subs.get(it.f.id) : null));
@@ -3587,7 +3603,7 @@ async function streamsFor(type, id, cfg) {
 async function getStreams(tmdbId, mediaType, season, episode, ctx) {
   const { cfg, archive } = readSettings();
   archiveOn = archive;
-  if (!E.hasWs(cfg) && !E.hsOn(cfg)) return [];
+  if (!anySource(cfg)) return [];
   const type = mediaType === "movie" ? "movie" : "series";
   const id = addonId(type, season, episode, ctx);
   if (!id) return [];
@@ -3608,6 +3624,15 @@ async function resolveStream(payload) {
     if (!link) throw new Error("Soubor na Hellspy není dostupný.");
     return link;
   }
+  if (payload && /^\d+$/.test(String(payload.f || ""))) {
+    if (!E.hasFs(cfg)) throw new Error("V nastavení pluginu chybí účet Fastshare.");
+    try {
+      return await E.fsPlayLink(cfg, String(payload.f), payload.n);
+    } catch (e) {
+      if (e instanceof E.FsError) throw new Error("Přihlášení k Fastshare se nepovedlo – zkontroluj jméno a heslo v nastavení pluginu.");
+      throw new Error("Fastshare teď neodpovídá, zkus to znovu.");
+    }
+  }
   throw new Error("Neznámý stream.");
 }
 async function getCatalog(type, id, extra) {
@@ -3616,6 +3641,7 @@ async function getCatalog(type, id, extra) {
   const ex = extra || {};
   if (id === "webshare_search") return { metas: await E.handleCatalog(type, ex, cfg, ASSETS) };
   if (id === "hellspy_search") return { metas: await E.handleCatalogHs(type, ex, cfg, ASSETS) };
+  if (id === "fastshare_search") return { metas: await E.handleCatalogFs(type, ex, cfg, ASSETS) };
   return { metas: [] };
 }
 async function getMeta(type, id) {
@@ -3624,6 +3650,7 @@ async function getMeta(type, id) {
 }
 async function onVerify(raw) {
   const { cfg } = readSettings(raw);
+  const s = raw || {};
   const parts = [];
   let ok = true;
   if (E.hasWs(cfg)) {
@@ -3637,11 +3664,25 @@ async function onVerify(raw) {
       ok = false;
       parts.push(`Webshare: ${e instanceof E.WsError ? e.message : "neodpovídá, zkus to znovu."}`);
     }
-  } else if (cfg.username || cfg.password) {
+  } else if (s.username || s.password) {
     ok = false;
     parts.push("Webshare: vyplň jméno i heslo.");
-  } else {
-    parts.push("Webshare: bez účtu (jen Hellspy).");
+  }
+  if (E.hasFs(cfg)) {
+    try {
+      const r = await E.fsLogin(cfg.fs_username, cfg.fs_password);
+      if (r.unlimited) parts.push("Fastshare: přihlášení v pořádku, neomezené stahování.");
+      else if (r.creditMB > 0) {
+        const credit = r.creditMB >= 1024 ? `${(r.creditMB / 1024).toFixed(1).replace(".", ",")} GB` : `${r.creditMB} MB`;
+        parts.push(`Fastshare: přihlášení v pořádku, kredit ${credit}.`);
+      } else parts.push("Fastshare: přihlášení v pořádku, ale účet nemá neomezené stahování ani kredit – přehrávání nemusí fungovat.");
+    } catch (e) {
+      ok = false;
+      parts.push(e instanceof E.FsError ? e.message : "Fastshare neodpovídá, zkus to znovu.");
+    }
+  } else if (s.fs_username || s.fs_password) {
+    ok = false;
+    parts.push("Fastshare: vyplň jméno i heslo.");
   }
   if (E.hsOn(cfg)) {
     try {
@@ -3652,9 +3693,9 @@ async function onVerify(raw) {
       parts.push(`Hellspy neodpovídá (${e.message}).`);
     }
   }
-  if (!E.hasWs(cfg) && !E.hsOn(cfg)) {
+  if (!anySource(cfg)) {
     ok = false;
-    parts.push("Zapni Hellspy nebo vyplň účet Webshare.");
+    parts.push("Vyplň účet Webshare nebo Fastshare, nebo zapni Hellspy.");
   }
   return { ok, message: parts.join(" ") };
 }

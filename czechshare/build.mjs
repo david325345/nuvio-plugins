@@ -1,5 +1,5 @@
-// Sestaví webshare/webshare.js z jádra addonu Webshare a zdrojů pluginu (webshare/src).
-//   npm install && node webshare/build.mjs ../webshare-stremio-docker
+// Sestaví czechshare/czechshare.js z jádra addonu CzechShare a zdrojů pluginu (czechshare/src).
+//   npm install && node czechshare/build.mjs ../webshare-stremio-docker
 // Jádro (lib/engine.js, matcher.js) se bere z checkoutu addonu, takže oprava parseru v addonu
 // se do pluginu dostane dalším sestavením. Platforma a needle se nahradí verzemi pro Nuvio.
 import { build } from 'esbuild';
@@ -19,7 +19,7 @@ const engineVersion = (server.match(/const VERSION = '([^']+)'/) || [])[1] || 'd
 let commit = 'unknown';
 try { commit = execFileSync('git', ['-C', engineDir, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(); } catch (e) { /* bez gitu */ }
 const pluginVersion = (fs.readFileSync(path.join(here, 'src', 'plugin.js'), 'utf8').match(/const VERSION = '([^']+)'/) || [])[1];
-// otisk parseru (lib/engine.js + matcher.js) – test/webshare-sync.test.js podle něj pozná plugin sestavený ze starého jádra
+// otisk parseru (lib/engine.js + matcher.js) – test/czechshare-sync.test.js podle něj pozná plugin sestavený ze starého jádra
 const parserHash = crypto.createHash('sha1')
     .update(fs.readFileSync(engineFile)).update(fs.readFileSync(path.join(engineDir, 'matcher.js')))
     .digest('hex').slice(0, 12);
@@ -36,7 +36,7 @@ const alias = {
 
 await build({
     entryPoints: [path.join(here, 'src', 'plugin.js')],
-    outfile: path.join(here, 'webshare.js'),
+    outfile: path.join(here, 'czechshare.js'),
     bundle: true,
     format: 'cjs',
     platform: 'neutral',
@@ -46,10 +46,10 @@ await build({
     inject: [path.join(here, '..', 'shared', 'timers.js')],
     define: { __ENGINE_VERSION__: JSON.stringify(engineVersion) },
     plugins: [alias],
-    banner: { js: `// Webshare ${pluginVersion} – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.\n` +
-        `// Zdroj: github.com/david325345/nuvio-plugins/tree/main/webshare/src + jádro addonu ` +
+    banner: { js: `// CzechShare ${pluginVersion} – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.\n` +
+        `// Zdroj: github.com/david325345/nuvio-plugins/tree/main/czechshare/src + jádro addonu ` +
         `github.com/david325345/webshare-stremio-docker ${engineVersion} (${commit}, parser ${parserHash}).` },
     logLevel: 'warning'
 });
-const size = fs.statSync(path.join(here, 'webshare.js')).size;
-console.log(`webshare/webshare.js: ${(size / 1024).toFixed(0)} kB (plugin ${pluginVersion}, jádro ${engineVersion} ${commit}, parser ${parserHash})`);
+const size = fs.statSync(path.join(here, 'czechshare.js')).size;
+console.log(`czechshare/czechshare.js: ${(size / 1024).toFixed(0)} kB (plugin ${pluginVersion}, jádro ${engineVersion} ${commit}, parser ${parserHash})`);

@@ -1,7 +1,7 @@
 'use strict';
-// Platforma jádra addonu Webshare (lib/engine.js) v pluginu pro Nuvio na Apple TV:
+// Platforma jádra addonu CzechShare (lib/engine.js) v pluginu pro Nuvio na Apple TV:
 // veřejné adresy služeb, mezipaměť v NUVIO.files (jinak localStorage), MD5-crypt v čistém JS
-// a Hellspy napřímo z televize (česká IP, proxy není potřeba).
+// a Hellspy i Fastshare napřímo z televize (česká IP, proxy není potřeba).
 const { md5crypt, sha1hex } = require('../../shared/hash');
 
 const settings = () => (typeof SCRAPER_SETTINGS === 'object' && SCRAPER_SETTINGS) || {};

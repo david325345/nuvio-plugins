@@ -43,27 +43,29 @@ indexer keys never leave it except to the indexer itself.
 The plugin runs on Apple TV only (`supportedPlatforms: ["tvos"]`); Nuvio on
 Android doesn't offer it because it can't play `nzbUrl` streams.
 
-## Webshare
+## CzechShare
 
 Czech and Slovak movies, series and anime from **Webshare.cz** (your own account;
-playing needs VIP) and **Hellspy** (free, no account). It has its own repository
-link, so it is installed separately from Usenet Direct:
+playing needs VIP), **Hellspy** (free, no account) and **Fastshare** (your own account;
+playing needs unlimited downloads or credit) — turn on the ones you use. It has its
+own repository link, so it is installed separately from Usenet Direct:
 
 ```
-https://raw.githubusercontent.com/david325345/nuvio-plugins/main/webshare/manifest.json
+https://raw.githubusercontent.com/david325345/nuvio-plugins/main/czechshare/manifest.json
 ```
 
 | | |
 |---|---|
-| **Search and parser** | The same as the [Webshare add-on](https://github.com/david325345/webshare-stremio-docker): Czech/Slovak titles from TMDB and ČSFD, anime names from the NimeToDex indexer, file names checked against the title, year, season/episode and runtime; Czech/Slovak dubbing and subtitles first. The add-on's `lib/engine.js` is bundled into `webshare/webshare.js` by `webshare/build.mjs`, so a parser fix in the add-on reaches the plugin with the next build. |
+| **Search and parser** | The same as the [CzechShare add-on](https://github.com/david325345/webshare-stremio-docker): Czech/Slovak titles from TMDB and ČSFD, anime names from the NimeToDex indexer, file names checked against the title, year, season/episode and runtime; Czech/Slovak dubbing and subtitles first. With the same quality and language, Webshare comes first, then Fastshare, then Hellspy. The add-on's `lib/engine.js` is bundled into `czechshare/czechshare.js` by `czechshare/build.mjs`, so a parser fix in the add-on reaches the plugin with the next build. |
+| **Sources** | Webshare and Fastshare are on when their login is filled in, Hellspy with its switch. All of them are searched at once. |
 | **Ids** | `tt…` (movies and episodes), `kitsu:`, `anilist:` (anime), `csfd:` (titles only on ČSFD), and its own catalog items. |
-| **Playing** | Links are made when a stream is played (`resolve`): Webshare's `file_link` from your own connection, Hellspy's MP4 conversion. Hellspy answers Czech and Slovak addresses only, which a TV at home has, so no proxy is needed. Hellspy's subtitles come with its streams. |
-| **Catalogs** | "Webshare Hledat" and "Hellspy Hledat" in Search, with details of each file. |
-| **Settings** | Webshare login (kept in the Keychain), Hellspy on/off, the two catalogs, your own TMDB key (Nuvio's is used otherwise). **Verify** logs in and shows the VIP days. |
+| **Playing** | Links are made when a stream is played (`resolve`): Webshare's `file_link` from your own connection, Hellspy's MP4 conversion, Fastshare's link with a fresh session. Hellspy answers Czech and Slovak addresses only, which a TV at home has, so no proxy is needed. Hellspy's subtitles come with its streams. |
+| **Catalogs** | "Webshare Hledat", "Hellspy Hledat" and "Fastshare Hledat" in Search (each can be turned off), with details of each file. |
+| **Settings** | Webshare and Fastshare logins (kept in the Keychain), Hellspy on/off, the three catalogs, your own TMDB key (Nuvio's is used otherwise). **Verify** logs in and shows the VIP days / Fastshare's unlimited downloads or credit. |
 | **Help improve search** | Off by default. When on, every search sends an anonymous record (the title searched for and the file names found, with the verdict) to the add-on's server, where the parser is fixed from them for everyone. Nothing about the user is sent or stored. |
 
 The plugin's texts are in Czech, like the add-on's. It runs on Apple TV only.
-Build: `npm install && node webshare/build.mjs ../webshare-stremio-docker`.
+Build: `npm install && node czechshare/build.mjs ../webshare-stremio-docker`.
 
 ## SKTorrent
 
