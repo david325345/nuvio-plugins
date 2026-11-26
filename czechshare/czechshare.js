@@ -1,5 +1,5 @@
-// CzechShare 1.1.0 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/czechshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.13.0 (f1c8f9e, parser 126ad24148ad).
+// CzechShare 1.1.1 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/czechshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.14.0 (14f6326, parser a60e905969d7).
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -203,14 +203,25 @@ var require_matcher = __commonJS({
       const n = fold(str).replace(/&/g, " and ").replace(/['’`´]/g, "").replace(/[^A-Za-z0-9]+/g, " ").trim();
       return n ? n.split(" ") : [];
     }
+    var LEAD_PAREN = /^\s*\(([^()]*)\)(?=[\s_.\-]|$)\s*[-_.]*\s*/;
+    function uploaderParen(inner) {
+      if (/\d/.test(inner)) return false;
+      if (/\p{L}{3,}-\p{L}{3,}/u.test(inner)) return false;
+      const words = inner.split(/[^\p{L}]+/u).filter(Boolean);
+      return words.length >= 1 && words.length <= 2;
+    }
     function stripLeadingGroups(fileName) {
       let s = String(fileName || "");
       const re = /^\s*\[([^\]]*)\]\s*[-_.]*\s*/;
       let m;
-      while (m = s.match(re)) {
-        const rest = s.slice(m[0].length);
-        if (/[a-z]{2}/i.test(m[1]) && /^\[\s*\d{1,4}(?:v\d)?(?:\s*end)?\s*\]/i.test(rest)) return `${m[1].trim()} ${rest}`;
-        s = rest;
+      for (; ; ) {
+        if (m = s.match(re)) {
+          const rest = s.slice(m[0].length);
+          if (/[a-z]{2}/i.test(m[1]) && /^\[\s*\d{1,4}(?:v\d)?(?:\s*end)?\s*\]/i.test(rest)) return `${m[1].trim()} ${rest}`;
+          s = rest;
+        } else if ((m = s.match(LEAD_PAREN)) && uploaderParen(m[1]) && s.slice(m[0].length).trim()) {
+          s = s.slice(m[0].length);
+        } else break;
       }
       return s;
     }
@@ -288,7 +299,7 @@ var require_matcher = __commonJS({
       return out;
     }
     function stripTech(n) {
-      return n.replace(/\b(19|20)\d{2}\b/g, " ").replace(/\b\d{3,4}\s*[pi]\b/g, " ").replace(/\b(4k|8k|uhd|fhd|hd|sd)\b/g, " ").replace(/\b[xh]\s*26[45]\b/g, " ").replace(/\b(hevc|avc|av1|xvid|divx)\b/g, " ").replace(/\b\d{1,2}\s*bit\b/g, " ").replace(/\b[1-9]\s+[01]\b/g, " ").replace(/\b(ddp?|dts|ac3|eac3|aac|flac|mp3|opus|truehd|atmos)\s*\d?\b/g, " ").replace(/\b\d{3,4}\s*x\s*\d{3,4}\b/g, " ").replace(/\b[0-9a-f]{8}\b/g, " ").replace(/\s+/g, " ").trim();
+      return n.replace(/\b(19|20)\d{2}\b/g, " ").replace(/\b\d{3,4}\s*[pi]\b/g, " ").replace(/\b(4k|8k|uhd|fhd|hd|sd)\b/g, " ").replace(/\b[xh]\s*26[45]\b/g, " ").replace(/\b(hevc|avc|av1|xvid|divx)\b/g, " ").replace(/\b\d{1,2}\s*bit\b/g, " ").replace(/\b[1-9]\s+[01]\b/g, " ").replace(/\b(ddp?|dts|ac3|eac3|aac|flac|mp3|opus|truehd|atmos)\s*\d?(?:\s+[01])?\b/g, " ").replace(/\b\d{3,4}\s*x\s*\d{3,4}\b/g, " ").replace(/\b[0-9a-f]{8}\b/g, " ").replace(/\s+/g, " ").trim();
     }
     var AIR_DATE = /\b(?:19|20)\d{2} (?:0[1-9]|1[0-2]) (?:0[1-9]|[12]\d|3[01])\b/g;
     function episodeRange(fileName) {
@@ -317,6 +328,8 @@ var require_matcher = __commonJS({
       if (m) return { season: +m[1], episode: +m[2], explicit: true };
       m = String(fileName).match(/[\[(]\s*(\d{1,2})\.(\d{2,3})\s*[\])]/);
       if (m) return { season: +m[1], episode: +m[2], explicit: true };
+      m = String(fileName).match(/\[\s*cap[ ._]*(\d{1,2})(\d{2})\s*\]/i);
+      if (m && +m[1] > 0 && +m[2] > 0) return { season: +m[1], episode: +m[2], explicit: true };
       m = n.match(/\b(\d{1,2})x(\d{1,4})\b/);
       if (m) return { season: +m[1], episode: +m[2], explicit: true };
       m = n.match(/\b(\d{2})e(\d{2,3})\b/);
@@ -397,7 +410,7 @@ var require_matcher = __commonJS({
       const source = /\sremux\s/.test(n) ? "REMUX" : /\s(bluray|bdrip|brrip|bd)\s/.test(n) ? "BluRay" : /\s(web dl|webdl|webrip|web)\s/.test(n) ? "WEB" : /\s(dvdrip|dvd)\s/.test(n) ? "DVD" : /\shdtv\s/.test(n) ? "HDTV" : null;
       return { resolution, score, codec, audio, hdr, source, cam };
     }
-    var TECH_WORDS = new Set("cz cze czech cesky sk svk slovak en eng english jap jpn japanese cc multi dual dab dabing dabbing dub dubbed tit titulky sub subs forced hd fhd uhd sd bluray bdrip brrip bd remux webrip web dl webdl hdtv dvdrip dvd rip xvid divx hevc avc aac ac3 dts ddp truehd atmos hdr dv extended edition directors cut uncut unrated remastered complete kompletni serie series season sezona rada episode ep epizoda dil cast part mp4 mkv avi vostfr tv ova movie film proper repack internal limited anime capitulo episodio folge odcinek bolum aflevering kvalita dobra pekna prodlouzena rozsirena mpg mpeg wmv ts mov flv m4v webm ddd yeff cam hdcam sbs 3d".split(" "));
+    var TECH_WORDS = new Set("cz cze czech cesky sk svk slovak en eng english jap jpn japanese cc multi dual dab dabing dabbing dub dubbed tit titulky sub subs forced hd fhd uhd fullhd ultrahd sd bluray bdrip brrip bd remux webrip web dl webdl hdtv dvdrip dvd rip xvid divx hevc avc aac ac3 dts ddp truehd atmos hdr dv extended edition directors cut uncut unrated remastered complete kompletni serie series season sezona rada episode ep epizoda dil cast part mp4 mkv avi vostfr tv ova movie film proper repack internal limited anime capitulo episodio folge odcinek bolum aflevering kvalita dobra pekna prodlouzena rozsirena mpg mpeg wmv ts mov flv m4v webm ddd yeff cam hdcam sbs 3d".split(" "));
     function afterName(fileName, name) {
       const all = fileTokens(fileName);
       const pos2all = [];
@@ -505,7 +518,7 @@ var require_matcher = __commonJS({
       const series = mode === "series";
       if (series && hit.start === 1 && nameTokens(name).length >= 2) {
         const first = fileTokens(cleaned).filter((t) => !STOPWORDS.has(t))[0];
-        if (/^s\d{1,2}e\d{1,4}$/.test(first || "")) return false;
+        if (/^(s\d{1,2}e\d{1,4}|\d{1,2}x\d{1,4})$/.test(first || "")) return false;
       }
       const rest6 = hit.rest.slice(0, 6);
       for (let i = 0; i < rest6.length; i++) {
@@ -1917,6 +1930,13 @@ ${cfg.fs_password}`);
       }
       return out;
     }
+    function animeIdParts(parts) {
+      if (parts.length >= 4) {
+        const animeId = /^\d+$/.test(parts[2]) && +parts[2] > 30 ? parts[2] : parts[1];
+        return { animeId, episode: parseInt(parts[parts.length - 1], 10) || null };
+      }
+      return { animeId: parts[1], episode: parseInt(parts[2], 10) || null };
+    }
     async function buildPlan(type, id, cfg) {
       const parts = id.split(":");
       let imdb = null, season = null, episode = null, rs = null, info = null;
@@ -1929,8 +1949,10 @@ ${cfg.fs_password}`);
         const rsParams = type === "series" && season && episode ? { imdb, season, episode } : { imdb };
         [info, rs] = await Promise.all([titleInfo(imdb, type, cfg.tmdb_api_key), resolveIds(rsParams)]);
       } else if (parts[0] === "kitsu" || parts[0] === "anilist") {
-        const key = parts[0], animeId = parts[1];
-        episode = parseInt(parts[2], 10) || null;
+        const key = parts[0];
+        const ap = animeIdParts(parts);
+        const animeId = ap.animeId;
+        episode = ap.episode;
         rs = await resolveIds(episode ? { [key]: animeId, episode } : { [key]: animeId });
         if (rs && rs.imdb_id) info = await titleInfo(rs.imdb_id, type, cfg.tmdb_api_key);
         season = rs && rs.season || 1;
@@ -2106,6 +2128,7 @@ ${cfg.fs_password}`);
       const deadline = Date.now() + budgetMs;
       let degraded = false, done = false;
       const finished = { WS: false, HS: false, FS: false }, okCount = { WS: 0, HS: 0, FS: 0 }, errCount = { WS: 0, HS: 0, FS: 0 }, lastErr = { WS: "", HS: "", FS: "" };
+      const authFail = { WS: false, FS: false };
       const muted = { WS: () => false, HS: () => Date.now() < hsDownUntil, FS: () => Date.now() < fsDownUntil };
       const pool = async (n, search, label) => {
         let i = 0;
@@ -2122,7 +2145,8 @@ ${cfg.fs_password}`);
               degraded = true;
               errCount[label]++;
               lastErr[label] = String(e.message || e).slice(0, 80);
-              const quiet = e instanceof FsError && errCount[label] > 1;
+              if (e instanceof WsError || e instanceof FsError) authFail[label] = true;
+              const quiet = authFail[label] && errCount[label] > 1;
               if (!quiet && !muted[label]()) log(`  ⚠️ ${label} hledání "${q}" selhalo: ${e.message}`);
             }
           }
@@ -2153,11 +2177,11 @@ ${cfg.fs_password}`);
         degraded,
         dead,
         deg,
-        wsFailed: !!(ws && hasWs(cfg) && errCount.WS && !okCount.WS),
+        wsFailed: !!(ws && hasWs(cfg) && errCount.WS && !okCount.WS && !authFail.WS),
         // vypršel čas a neprošel ani jeden dotaz (poskytovatel "visí" – typicky v celou hodinu)
         wsTimedOut: !!(ws && hasWs(cfg) && !finished.WS && !okCount.WS),
         hsTimedOut: !!(hs && hsOn(cfg) && !finished.HS && !okCount.HS && Date.now() >= hsDownUntil),
-        fsFailed: !!(fs && hasFs(cfg) && errCount.FS && !okCount.FS && Date.now() >= fsDownUntil),
+        fsFailed: !!(fs && hasFs(cfg) && errCount.FS && !okCount.FS && Date.now() >= fsDownUntil && !authFail.FS),
         fsTimedOut: !!(fs && hasFs(cfg) && !finished.FS && !okCount.FS && Date.now() >= fsDownUntil)
       };
     }
@@ -2207,8 +2231,38 @@ ${cfg.fs_password}`);
       }
       return { name: m[1] + ext, word };
     }
+    function nameVariants(text) {
+      const out = [];
+      if (/['’`]/.test(text)) out.push(text.replace(/\s*['’`]\s*/g, " "));
+      if (/\bUK\b/.test(text)) out.push(text.replace(/\bUK\b/g, "United Kingdom"));
+      return out;
+    }
+    var variantNames = /* @__PURE__ */ new WeakMap();
+    function withNameVariants(plan) {
+      if (!plan || !Array.isArray(plan.names)) return plan;
+      let v = variantNames.get(plan.names);
+      if (v === void 0) {
+        const have = new Set(plan.names.map((n) => M.nameTokens(n.text).join(" ")));
+        const extra = [];
+        for (const n of plan.names) {
+          if (n.short) continue;
+          for (const t of nameVariants(n.text)) {
+            const k = M.nameTokens(t).join(" ");
+            if (!k || have.has(k)) continue;
+            have.add(k);
+            extra.push({ ...n, text: t, full: void 0, variant: true });
+          }
+        }
+        v = extra.length ? { names: [...plan.names, ...extra], extraAllow: extra.flatMap((n) => M.nameTokens(n.text)) } : null;
+        variantNames.set(plan.names, v);
+        if (v) variantNames.set(v.names, null);
+      }
+      if (!v) return plan;
+      return { ...plan, names: v.names, allow: /* @__PURE__ */ new Set([...plan.allow || [], ...v.extraAllow]) };
+    }
     function judgeFile(f, plan) {
       if (M.isNonVideo(f.name)) return { ok: false, reason: "nepřehratelný soubor" };
+      plan = withNameVariants(plan);
       const texts = plan.names.map((n) => n.text);
       const anyTitle = plan.names.some((n) => M.titleMatches(f.name, n.text, texts, plan.year));
       if (plan.type === "movie") {
@@ -3411,6 +3465,9 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       SIGNED_RE,
       signedName,
       judgeFile,
+      withNameVariants,
+      nameVariants,
+      animeIdParts,
       sameNameVerdict,
       OWN_NAME,
       ownNameMatch,
@@ -3474,8 +3531,8 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
 // czechshare/src/plugin.js
 init_timers();
 var E = require_engine();
-var VERSION = "1.1.0";
-var ENGINE_VERSION = true ? "8.13.0" : "dev";
+var VERSION = "1.1.1";
+var ENGINE_VERSION = true ? "8.14.0" : "dev";
 var ASSETS = "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public";
 var ARCHIVE_URL = "https://webshare-stremio.freeddns.org/api/archive";
 function onSettings() {
