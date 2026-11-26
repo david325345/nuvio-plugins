@@ -1,5 +1,5 @@
-// SKTorrent 1.0.1 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/sktorrent/src + kód addonu github.com/david325345/sktorrent-realdebrid-docker 3.10.1 (b32345b).
+// SKTorrent 1.0.2 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/sktorrent/src + kód addonu github.com/david325345/sktorrent-realdebrid-docker 3.10.2 (a1eb8d1).
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2191,7 +2191,7 @@ var require_search = __commonJS({
         if (from.err) return { items: [], raw: [], hasMore: false };
         const raw = filterLikeSKT(from.raw, extra);
         queries.push({ q, p: 0, n: raw.length, more: false, ms: "lokálně" });
-        return { items: raw.filter((t) => !t.cat || allowed.test(t.cat)), raw, hasMore: false };
+        return { items: raw.filter((t) => !t.cat || allowed.test(t.cat)), raw, hasMore: false, partial: !!from.hasMore };
       };
       let torrents = [], batchTorrents = [], noSeasonTorrents = [];
       const isSeries = type === "series" && season !== void 0 && episode !== void 0;
@@ -2395,8 +2395,6 @@ var require_search = __commonJS({
       const tooOld = isSeries ? makeSeriesYearCheck(titles.year, allNames) : () => null;
       const seasonYear = isSeries ? (titles.seasonYears || {})[season] : null;
       const seasonAfter = isSeries ? lastKnownSeasonYear(titles.seasonYears, season) : null;
-      const newSeasonYear = parseInt(seasonYear) || (seasonAfter ? seasonAfter + 1 : 0);
-      const newSeason = isSeries && newSeasonYear >= (/* @__PURE__ */ new Date()).getFullYear() - 1;
       const beforeSeason0 = isSeries ? makeSeasonYearCheck(seasonYear, season, allNames, { lastKnownYear: seasonAfter, seriesYear: titles.year }) : () => null;
       const otherYear = isSeries ? makeNoSeasonYearCheck(seasonYear, titles.year, allNames) : () => null;
       const beforeSeason = (n) => beforeSeason0(n) || otherYear(n);
@@ -2441,10 +2439,12 @@ var require_search = __commonJS({
         for (const r of [ep, se, bare, seri]) take(r);
         judgeSeries(ep.items, matchesTitle, false);
         judgeSeries(se.items, matchesTitle, false);
+        const variantsComplete = [ep, se, seri].every((r) => !r.hasMore && !r.err && !r.partial);
+        const skipMore = variantsComplete && ![ep, se, bare, seri].some((r) => r.items.some((t) => strict(t.name, t.cat)));
         const morePages = async (q, first, withNoSeason) => {
           let r = first, p = 0;
-          if (newSeason && !first.items.some((t) => strict(t.name, t.cat))) {
-            if (first.hasMore) console.log(`[SKT]   ⏭️ nová sezóna — „${q}“ bez našeho titulu na 1. stránce, další stránky se nečtou`);
+          if (skipMore) {
+            if (first.hasMore) console.log(`[SKT]   ⏭️ 1. kolo bez našeho titulu, varianty úplné — „${q}“: další stránky se nečtou`);
             if (withNoSeason) {
               judgeSeries(r.items, matchesTitle, true);
               for (const t of fit(r.items).filter(noSeasonOk)) if (!noSeasonTorrents.some((x) => x.hash === t.hash)) noSeasonTorrents.push(t);
@@ -3398,8 +3398,8 @@ var { activeProviders, rdVerify, tbVerify } = require_debrid();
 var { sktLogin } = require_skt();
 var archive = require_archive();
 var { sha256hex } = require_hash();
-var VERSION = "1.0.1";
-var ADDON_VERSION = true ? "3.10.1" : "dev";
+var VERSION = "1.0.2";
+var ADDON_VERSION = true ? "3.10.2" : "dev";
 var ARCHIVE_URL = true ? "" : "";
 var PUBLIC = "https://raw.githubusercontent.com/david325345/sktorrent-realdebrid-docker/main/public/";
 function onSettings() {

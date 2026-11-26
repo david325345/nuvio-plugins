@@ -1,6 +1,6 @@
 {
   "name": "SKTorrent",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "SKTorrent (sktorrent.eu) pro Nuvio na Apple TV – CZ/SK torrenty přes Real-Debrid a/nebo TorBox.",
   "author": "david325345",
   "scrapers": [
@@ -8,7 +8,7 @@
       "id": "sktorrent",
       "name": "SKTorrent",
       "description": "CZ/SK torrenty ze sktorrent.eu přes Real-Debrid a/nebo TorBox – stejné hledání a parser jako addon SKTorrent",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "filename": "sktorrent.js",
       "logo": "https://raw.githubusercontent.com/david325345/sktorrent-realdebrid-docker/main/public/logo.png",
       "supportedTypes": ["movie", "tv"],
