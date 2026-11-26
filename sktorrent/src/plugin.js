@@ -9,7 +9,7 @@ const { sktLogin } = require('skt/skt');
 const archive = require('skt/archive');
 const { sha256hex } = require('../../shared/hash');
 
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const ADDON_VERSION = typeof __ADDON_VERSION__ === 'string' ? __ADDON_VERSION__ : 'dev';
 const ARCHIVE_URL = typeof __ARCHIVE_URL__ === 'string' ? __ARCHIVE_URL__ : '';
 // informační videa (stahuje se, fronta…) a logo z veřejného repozitáře addonu
