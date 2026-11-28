@@ -1,5 +1,5 @@
-// SKTorrent 1.0.2 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/sktorrent/src + kód addonu github.com/david325345/sktorrent-realdebrid-docker 3.10.2 (a1eb8d1).
+// SKTorrent 1.0.3 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/sktorrent/src + kód addonu github.com/david325345/sktorrent-realdebrid-docker 3.10.3 (ccc307f).
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -2402,7 +2402,7 @@ var require_search = __commonJS({
       const bareYearCheck = isSeries ? makeNoSeasonYearCheck(seasonYear || titles.year, titles.year, allNames) : () => null;
       const bareYear = (n) => isSeries && f.bareOnly(n) ? bareYearCheck(n) : null;
       const isEpisode = (n) => f.matchesExactEpisode(n) && !bareYear(n);
-      const judgeSeries = (items, matchesTitle, withNoSeason) => items.forEach((t) => {
+      const judgeSeries = (items, matchesTitle2, withNoSeason) => items.forEach((t) => {
         if (!strict(t.name, t.cat)) return mark(t, false, nameReason(t));
         const old = csfdState(t.name) === "match" ? null : tooOld(t.name);
         if (old) return mark(t, false, old);
@@ -2419,59 +2419,75 @@ var require_search = __commonJS({
         }
         mark(t, false, f.rejectReason(t.name));
       });
-      async function seriesWithName(name) {
-        if (!canStartRound()) return;
-        const matchesTitle = (t) => strict(t.name, t.cat) && (csfdState(t.name) === "match" || !tooOld(t.name));
-        const fit = (items) => items.filter((t) => matchesTitle(t));
-        const addEps = (list) => {
-          for (const t of list) if (!torrents.some((x) => x.hash === t.hash)) torrents.push(t);
-        };
-        const take = (r) => {
-          const found = fit(r.items);
-          addEps(found.filter((t) => isEpisode(t.name)));
-          addBatch(found.filter((t) => f.isBatchSeason(t.name)));
-        };
+      const matchesTitle = (t) => strict(t.name, t.cat) && (csfdState(t.name) === "match" || !tooOld(t.name));
+      const fit = (items) => items.filter((t) => matchesTitle(t));
+      const addEps = (list) => {
+        for (const t of list) if (!torrents.some((x) => x.hash === t.hash)) torrents.push(t);
+      };
+      const take = (r) => {
+        const found = fit(r.items);
+        addEps(found.filter((t) => isEpisode(t.name)));
+        addBatch(found.filter((t) => f.isBatchSeason(t.name)));
+      };
+      const takeNoSeason = (items) => {
+        judgeSeries(items, matchesTitle, true);
+        for (const t of fit(items).filter(noSeasonOk))
+          if (!noSeasonTorrents.some((x) => x.hash === t.hash)) {
+            noSeasonTorrents.push(t);
+            console.log(`[SKT] 📦 +bez sezóny: "${t.name.slice(0, 80)}"`);
+          }
+      };
+      const haveSeasonPack = () => batchTorrents.some((t) => f.isSeasonPack(t.name));
+      async function seriesRound1(name) {
         const low = !mainNames.has(name);
-        const haveSeasonPack = () => batchTorrents.some((t) => f.isSeasonPack(t.name));
         const qSeri = `${name} seri`;
         const bare = await page(name, 0, low);
         const [ep, se, seri] = bare.hasMore && canStartRound() ? await Promise.all([page(`${name} ${f.epTag}`, 0, low), page(`${name} ${f.seTag}`, 0, low), page(qSeri, 0, low)]) : [localPage(`${name} ${f.epTag}`, bare, f.epTag), localPage(`${name} ${f.seTag}`, bare, f.seTag), localPage(qSeri, bare, "seri")];
         for (const r of [ep, se, bare, seri]) take(r);
         judgeSeries(ep.items, matchesTitle, false);
         judgeSeries(se.items, matchesTitle, false);
+        takeNoSeason(bare.items);
+        takeNoSeason(seri.items);
         const variantsComplete = [ep, se, seri].every((r) => !r.hasMore && !r.err && !r.partial);
         const skipMore = variantsComplete && ![ep, se, bare, seri].some((r) => r.items.some((t) => strict(t.name, t.cat)));
-        const morePages = async (q, first, withNoSeason) => {
-          let r = first, p = 0;
-          if (skipMore) {
+        return { name, qSeri, bare, seri, skipMore };
+      }
+      async function seriesMore(st2) {
+        const more = async (q, first) => {
+          if (st2.skipMore) {
             if (first.hasMore) console.log(`[SKT]   ⏭️ 1. kolo bez našeho titulu, varianty úplné — „${q}“: další stránky se nečtou`);
-            if (withNoSeason) {
-              judgeSeries(r.items, matchesTitle, true);
-              for (const t of fit(r.items).filter(noSeasonOk)) if (!noSeasonTorrents.some((x) => x.hash === t.hash)) noSeasonTorrents.push(t);
-            }
             return;
           }
+          let r = first, p = 0;
           while (true) {
-            if (withNoSeason) {
-              judgeSeries(r.items, matchesTitle, true);
-              for (const t of fit(r.items).filter(noSeasonOk))
-                if (!noSeasonTorrents.some((x) => x.hash === t.hash)) {
-                  noSeasonTorrents.push(t);
-                  console.log(`[SKT] 📦 +bez sezóny: "${t.name.slice(0, 80)}"`);
-                }
-            } else if (p > 0) judgeSeries(r.items, matchesTitle, false);
-            if (p > 0) take(r);
             if (haveSeasonPack() || !r.hasMore || ++p >= MAX_PAGES || !canStartRound()) break;
             await delay(300);
             r = await page(q, p);
+            takeNoSeason(r.items);
+            take(r);
           }
         };
-        await Promise.all([morePages(name, bare, true), morePages(qSeri, seri, true)]);
+        await Promise.all([more(st2.name, st2.bare), more(st2.qSeri, st2.seri)]);
       }
       if (isSeries) {
+        const found = () => torrents.length || batchTorrents.length || noSeasonTorrents.length;
+        const pending = [];
+        let titled = null;
         for (const name of names) {
-          await seriesWithName(name);
-          if (torrents.length || batchTorrents.length || noSeasonTorrents.length || titleSeen || stop()) break;
+          if (!canStartRound()) break;
+          const seen = titleSeen;
+          const st2 = await seriesRound1(name);
+          if (titleSeen > seen) {
+            titled = st2;
+            break;
+          }
+          pending.push(st2);
+          if (found() || stop()) break;
+        }
+        if (titled) await seriesMore(titled);
+        for (const st2 of pending) {
+          if (found() || stop() || !titled && titleSeen) break;
+          await seriesMore(st2);
         }
       }
       if (partCsfd.size) {
@@ -2487,8 +2503,9 @@ var require_search = __commonJS({
       for (const t of noSeasonTorrents) addBatch([t]);
       batchTorrents = batchTorrents.filter((b) => !torrents.some((t) => t.hash === b.hash));
       if (!queries.length && (breakerOpen() || isPaused(sktUid, sktPass))) queries.push({ q: "", p: 0, n: 0, ms: 0, err: breakerOpen() ? "jistič" : pauseKind(sktUid, sktPass) });
-      const sktDown = !torrents.length && !batchTorrents.length && queries.some((q) => q.err);
-      console.log(`[SKT] Výsledek: ${torrents.length} ${isSeries ? "epizod" : "filmů"}, ${batchTorrents.length} balíků (${Date.now() - started} ms)${sktDown ? " — ⚠️ SKT neodpovídá" : ""}`);
+      const errs = queries.filter((q) => q.err);
+      const sktDown = !torrents.length && !batchTorrents.length && errs.length ? errs.every((q) => q.err === "limit addonu") ? "limit" : true : false;
+      console.log(`[SKT] Výsledek: ${torrents.length} ${isSeries ? "epizod" : "filmů"}, ${batchTorrents.length} balíků (${Date.now() - started} ms)${sktDown === "limit" ? " — ⏳ limit rychlosti addonu (SKT odpovídá)" : sktDown ? " — ⚠️ SKT neodpovídá" : ""}`);
       return {
         torrents,
         batchTorrents,
@@ -2497,7 +2514,7 @@ var require_search = __commonJS({
         seasonYear: seasonYear || null,
         ...seasonAfter ? { seasonAfter } : {},
         ms: Date.now() - started,
-        ...sktDown ? { sktDown: true } : {},
+        ...sktDown ? { sktDown } : {},
         ...queuedMs >= 100 ? { queuedMs } : {},
         ...detailsSent ? { details: detailsSent } : {},
         ...ourCsfd ? { csfdOf: new Map([...csfdOf].filter(([, v]) => v !== void 0)) } : {},
@@ -3251,7 +3268,7 @@ ${providerLine(p, cached)}`, ...link2.play(p.id, hash, {}), behaviorHints: { not
           names: found.names,
           queries: found.audit.queries,
           ms: found.ms,
-          ...found.sktDown ? { sktDown: true } : {},
+          ...found.sktDown ? { sktDown: found.sktDown } : {},
           ...found.queuedMs ? { queuedMs: found.queuedMs } : {},
           ...found.details ? { details: found.details } : {},
           providers: provs.map((p) => p.id),
@@ -3268,6 +3285,12 @@ ${providerLine(p, cached)}`, ...link2.play(p.id, hash, {}), behaviorHints: { not
         });
         if (!torrents.length && !batchTorrents.length) {
           archiveStream(null, null);
+          if (found.sktDown === "limit") return { streams: [{
+            name: "SKTorrent\n⏳ moc hledání",
+            description: "⏳ Příliš mnoho hledání za minutu — addon tak chrání účet před blokací SKTorrentu.\nZkuste to znovu za chvíli.",
+            ...link2.file("skt-limit.mp4"),
+            behaviorHints: { notWebReady: true, bingeGroup: "skt-limit" }
+          }], cacheMaxAge: 0 };
           if (found.sktDown) return { streams: [{
             name: "SKTorrent\n⚠️ nedostupný",
             description: "⚠️ SKTorrent teď neodpovídá — výsledky nejde načíst.\nZkuste to znovu za chvíli.",
@@ -3398,8 +3421,8 @@ var { activeProviders, rdVerify, tbVerify } = require_debrid();
 var { sktLogin } = require_skt();
 var archive = require_archive();
 var { sha256hex } = require_hash();
-var VERSION = "1.0.2";
-var ADDON_VERSION = true ? "3.10.2" : "dev";
+var VERSION = "1.0.3";
+var ADDON_VERSION = true ? "3.10.3" : "dev";
 var ARCHIVE_URL = true ? "" : "";
 var PUBLIC = "https://raw.githubusercontent.com/david325345/sktorrent-realdebrid-docker/main/public/";
 function onSettings() {
