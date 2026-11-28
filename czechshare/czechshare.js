@@ -1,5 +1,5 @@
-// CzechShare 1.1.1 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
-// Zdroj: github.com/david325345/nuvio-plugins/tree/main/czechshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.14.0 (14f6326, parser a60e905969d7).
+// CzechShare 1.1.2 – plugin pro Nuvio na Apple TV. SESTAVENO, needitovat ručně.
+// Zdroj: github.com/david325345/nuvio-plugins/tree/main/czechshare/src + jádro addonu github.com/david325345/webshare-stremio-docker 8.15.0 (977aa81, parser ca68fbbbf997).
 "use strict";
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __esm = (fn, res) => function __init() {
@@ -268,9 +268,12 @@ var require_matcher = __commonJS({
       if (!words.length) return true;
       if (words.length === 1 && !PREFIX_BAD.has(words[0]) && !PREPOSITIONS.has(nt[0])) return true;
       const raw = stripLeadingGroups(fileName);
+      const mark = raw.match(/(?:^|[\s._\-[(])(s\d{1,2}\s?e\d{1,4}|\d{1,2}x\d{1,4})(?=$|[\s._\-\])])/i);
+      const markAt = mark && /\p{L}/u.test(raw.slice(0, mark.index)) ? mark.index : Infinity;
       const re = /\s+[-–—]+\s+|-{2,}|_-_|\s+\|\s+/g;
       let m;
       while (m = re.exec(raw)) {
+        if (m.index > markAt) break;
         const h = afterName(raw.slice(m.index + m[0].length), name);
         if (h && h.start === 0) return true;
       }
@@ -1917,10 +1920,24 @@ ${cfg.fs_password}`);
       if (!m) return null;
       return M.nameTokens(m[1]).length >= 4 ? m[1].trim() : null;
     }
+    var ENTITIES = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " " };
+    function decodeEntities(s) {
+      if (typeof s !== "string" || !s.includes("&")) return s;
+      return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, e) => {
+        if (e[0] === "#") {
+          const cp = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+          return cp > 0 && cp < 1114112 ? String.fromCodePoint(cp) : all;
+        }
+        return ENTITIES[e.toLowerCase()] ?? all;
+      });
+    }
     function uniqNames(list, max) {
       const seen = /* @__PURE__ */ new Set(), out = [];
-      for (const n of list) {
+      for (let n of list) {
         if (!n || !n.text) continue;
+        if (n.text.includes("&") || n.full && n.full.includes("&")) {
+          n = { ...n, text: decodeEntities(n.text), ...n.full ? { full: decodeEntities(n.full) } : {} };
+        }
         const nt = M.nameTokens(n.text);
         const k = nt.join(" ");
         if (!k || !nt.some((t) => t.length >= 3) || seen.has(k)) continue;
@@ -2260,8 +2277,17 @@ ${cfg.fs_password}`);
       if (!v) return plan;
       return { ...plan, names: v.names, allow: /* @__PURE__ */ new Set([...plan.allow || [], ...v.extraAllow]) };
     }
+    var BONUS_RE = /(?:^|\s)(menu|end ?card|nc ?op\d*|nc ?ed\d*|creditless|textless|trailer|teaser)(?=\s|$)/;
+    function bonusWord(name, plan) {
+      const m = M.normalize(name).match(BONUS_RE);
+      if (!m) return null;
+      const words = m[1].replace(/\d+$/, "").split(" ").filter(Boolean);
+      const ours = new Set((plan.names || []).flatMap((n) => M.tokens(n.full || n.text)));
+      return words.every((w) => ours.has(w)) ? null : m[1];
+    }
     function judgeFile(f, plan) {
       if (M.isNonVideo(f.name)) return { ok: false, reason: "nepřehratelný soubor" };
+      if (bonusWord(f.name, plan)) return { ok: false, reason: "bonus / ukázka" };
       plan = withNameVariants(plan);
       const texts = plan.names.map((n) => n.text);
       const anyTitle = plan.names.some((n) => M.titleMatches(f.name, n.text, texts, plan.year));
@@ -3468,6 +3494,8 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
       withNameVariants,
       nameVariants,
       animeIdParts,
+      decodeEntities,
+      bonusWord,
       sameNameVerdict,
       OWN_NAME,
       ownNameMatch,
@@ -3531,8 +3559,8 @@ ${q.cam ? "CAM" : q.resolution || "SD"}`,
 // czechshare/src/plugin.js
 init_timers();
 var E = require_engine();
-var VERSION = "1.1.1";
-var ENGINE_VERSION = true ? "8.14.0" : "dev";
+var VERSION = "1.1.2";
+var ENGINE_VERSION = true ? "8.15.0" : "dev";
 var ASSETS = "https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public";
 var ARCHIVE_URL = "https://webshare-stremio.freeddns.org/api/archive";
 function onSettings() {

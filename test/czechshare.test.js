@@ -289,7 +289,7 @@ test('archiv hledání s Fastshare: zdroj fs, délka a rozlišení, bez údajů 
     assert.equal(archived.length, 1);
     const rec = archived[0].record;
     assert.equal(rec.src, 'f');
-    assert.match(rec.v, /^8\.\d+\.\d+\+nuvio-1\.1\.1$/);
+    assert.match(rec.v, /^8\.\d+\.\d+\+nuvio-1\.1\.2$/);
     assert.ok(rec.files.some(f => f.src === 'fs' && f.len === 8178 && f.res === '1920x800' && f.sent === 1), JSON.stringify(rec.files));
     const text = JSON.stringify(archived[0]);
     assert.ok(!text.includes(FS_PASSWORD) && !text.includes(FS_HASH) && !text.includes('david'), 'nic o uživateli');

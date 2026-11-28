@@ -6,7 +6,7 @@
 // Každý zdroj se zapne sám: Webshare a Fastshare vyplněním účtu, Hellspy přepínačem.
 const E = require('webshare-engine');
 
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
 const ENGINE_VERSION = typeof __ENGINE_VERSION__ === 'string' ? __ENGINE_VERSION__ : 'dev';
 // obrázky (pozadí, logo) z veřejného repozitáře addonu
 const ASSETS = 'https://raw.githubusercontent.com/david325345/webshare-stremio-docker/main/public';
